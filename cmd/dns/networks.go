@@ -136,13 +136,16 @@ func (net *Networks) Lookup(sourceIp IPAddress, hostname Hostname) IPAddress {
 }
 
 func (net *Networks) ReverseLookup(sourceIp IPAddress, ip IPAddress) []Hostname {
+	log.Printf("ReverseLookup: sourceIP %s IP %s", sourceIp, ip)
 	networks := net.IpToNetworks[sourceIp]
 	if networks == nil {
 		return nil
 	}
 	for _, network := range networks {
+		log.Printf("Trying %s %v", network.Id, network)
 		pod := network.IPToPod[ip]
 		if pod != nil {
+			log.Printf("Found hostaliases %v", pod.HostAliases)
 			return pod.HostAliases
 		}
 	}
