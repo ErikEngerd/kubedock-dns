@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"slices"
-	"sync"
 )
 
 type IPAddress string
@@ -62,8 +61,10 @@ func (net *Network) Delete(ip IPAddress) {
 	}
 }
 
+// Networks is not thread-safe and is meant to be used using copy-on-write
+// This make the design a lot easier since it will support many change scenario's
+// out of the box.
 type Networks struct {
-	mutex         sync.RWMutex
 	NameToNetwork map[NetworkId]*Network
 	IpToNetwork   map[IPAddress]*Network
 }
@@ -76,9 +77,6 @@ func NewNetworks() *Networks {
 }
 
 func (net *Networks) Add(pod *Pod) error {
-	net.mutex.Lock()
-	defer net.mutex.Unlock()
-
 	if pod.IP == "" {
 		log.Panicf("Pod IP is not set: %+v", pod)
 	}
@@ -123,9 +121,6 @@ func (net *Networks) Add(pod *Pod) error {
 }
 
 func (net *Networks) Delete(ip IPAddress) {
-	net.mutex.Lock()
-	defer net.mutex.Unlock()
-
 	network := net.IpToNetwork[ip]
 	if network == nil {
 		log.Printf("delete: IP %s is not in any network", ip)
@@ -161,9 +156,6 @@ func (net *Networks) LogNetworks() {
 }
 
 func (net *Networks) Lookup(sourceIp IPAddress, hostname Hostname) IPAddress {
-	net.mutex.RLock()
-	defer net.mutex.RUnlock()
-
 	network := net.IpToNetwork[sourceIp]
 	if network == nil {
 		return ""
@@ -176,9 +168,6 @@ func (net *Networks) Lookup(sourceIp IPAddress, hostname Hostname) IPAddress {
 }
 
 func (net *Networks) ReverseLookup(sourceIp IPAddress, ip IPAddress) []Hostname {
-	net.mutex.RLock()
-	defer net.mutex.RUnlock()
-
 	network := net.IpToNetwork[sourceIp]
 	if network == nil {
 		return nil
@@ -188,4 +177,34 @@ func (net *Networks) ReverseLookup(sourceIp IPAddress, ip IPAddress) []Hostname 
 		return nil
 	}
 	return pod.HostAliases
+}
+
+type Pods struct {
+	// maps pod namespace/name to pod
+	Pods map[string]*Pod
+}
+
+func NewPods() *Pods {
+	return &Pods{
+		Pods: make(map[string]*Pod),
+	}
+}
+
+func (pods *Pods) AddOrUpdate(pod *Pod) {
+	pods.Pods[pod.Namespace+"/"+pod.Name] = pod
+}
+
+func (pods *Pods) Delete(namespace, name string) {
+	delete(pods.Pods, namespace+"/"+name)
+}
+
+func (pods *Pods) Networks() (*Networks, error) {
+	networks := NewNetworks()
+	for _, pod := range pods.Pods {
+		err := networks.Add(pod)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return networks, nil
 }

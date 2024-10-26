@@ -28,7 +28,7 @@ func getPod(obj any) *corev1.Pod {
 	return pod
 }
 
-func podChange(net *Networks, pod *corev1.Pod) {
+func podChange(pods *Pods, pod *corev1.Pod) {
 	//j, _ := json.Marshal(obj)
 	//log.Printf("%s\n", string(j))
 
@@ -68,18 +68,25 @@ func podChange(net *Networks, pod *corev1.Pod) {
 			HostAliases: hostaliases,
 			Network:     network,
 		}
-		err := net.Add(&podObj)
+		pods.AddOrUpdate(&podObj)
+		net, err := pods.Networks()
 		if err != nil {
 			log.Printf("Error adding pod %s/%s: %v", pod.Namespace, pod.Name, err)
+			return
 		}
 		net.LogNetworks()
 	}
 }
 
-func podDeletion(net *Networks, pod *corev1.Pod) {
+func podDeletion(pods *Pods, pod *corev1.Pod) {
 	log.Printf("delete: %s/%s %s", pod.ObjectMeta.Namespace,
 		pod.ObjectMeta.Name, pod.Status.PodIP)
-	net.Delete(IPAddress(pod.Status.PodIP))
+	pods.Delete(pod.Namespace, pod.Name)
+	net, err := pods.Networks()
+	if err != nil {
+		log.Printf("Error deleting pod %v: %v", pod, err)
+		return
+	}
 	net.LogNetworks()
 }
 
@@ -116,7 +123,7 @@ func main() {
 
 	log.Printf("Watching namespace %s", namespace)
 
-	networks := NewNetworks()
+	pods := NewPods()
 
 	watchlist := cache.NewListWatchFromClient(
 		clientset.CoreV1().RESTClient(),
@@ -130,13 +137,13 @@ func main() {
 		ObjectType:    &corev1.Pod{},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				podChange(networks, getPod(obj))
+				podChange(pods, getPod(obj))
 			},
 			UpdateFunc: func(_ any, obj any) {
-				podChange(networks, getPod(obj))
+				podChange(pods, getPod(obj))
 			},
 			DeleteFunc: func(obj any) {
-				podDeletion(networks, getPod(obj))
+				podDeletion(pods, getPod(obj))
 			},
 		},
 		ResyncPeriod: 0,
