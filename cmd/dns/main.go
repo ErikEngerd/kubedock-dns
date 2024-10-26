@@ -56,10 +56,6 @@ func podChange(pods *Pods, dns *KubeDockDns, pod *corev1.Pod) {
 				pod.Namespace, pod.Name)
 			return
 		}
-		if len(networks) > 1 {
-			log.Printf("Pod %s/%s has more than one network, this is currently not supported",
-				pod.Namespace, pod.Name)
-		}
 
 		podObj := Pod{
 			IP:          IPAddress(pod.Status.PodIP),
@@ -99,7 +95,7 @@ func createDns() *KubeDockDns {
 	}
 	upstreamDnsServer := clientConfig.Servers[0]
 	log.Printf("DNS server %s", upstreamDnsServer)
-	kubedocDns := NewKubeDockDns(upstreamDnsServer + ":53")
+	kubedocDns := NewKubeDockDns(upstreamDnsServer+":53", ":1053")
 	return kubedocDns
 }
 

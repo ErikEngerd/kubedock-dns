@@ -13,15 +13,17 @@ type KubeDockDns struct {
 	mutex             sync.RWMutex
 	networks          *Networks
 	upstreamDnsServer string
+	port              string
 
 	overrideSourceIP IPAddress
 }
 
-func NewKubeDockDns(upstreamDnsServer string) *KubeDockDns {
+func NewKubeDockDns(upstreamDnsServer string, port string) *KubeDockDns {
 	server := KubeDockDns{
 		mutex:             sync.RWMutex{},
 		networks:          NewNetworks(),
 		upstreamDnsServer: upstreamDnsServer,
+		port:              port,
 	}
 	return &server
 }
@@ -39,7 +41,7 @@ func (dnsServer *KubeDockDns) SetNetworks(networks *Networks) {
 
 func (dnsServer *KubeDockDns) Serve() {
 	dns.HandleFunc(".", dnsServer.handleDNSRequest)
-	server := &dns.Server{Addr: ":53", Net: "udp"}
+	server := &dns.Server{Addr: dnsServer.port, Net: "udp"}
 	log.Printf("Starting DNS server on %s\n", server.Addr)
 	err := server.ListenAndServe()
 	defer server.Shutdown()

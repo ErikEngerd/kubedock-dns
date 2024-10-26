@@ -36,7 +36,7 @@ func NewNetwork(id NetworkId) *Network {
 func (net *Network) Add(pod *Pod) error {
 	for _, hostAlias := range pod.HostAliases {
 		existingPod := net.HostAliasToPod[hostAlias]
-		if existingPod != nil {
+		if existingPod != nil && !(existingPod.Namespace == pod.Namespace && existingPod.Name == pod.Name) {
 			return fmt.Errorf("Pod %+v has hostAlias %s in network %s which is already mapped to another pod %+v",
 				pod, hostAlias, net.Id, existingPod)
 		}
@@ -80,9 +80,6 @@ func (net *Networks) Add(pod *Pod) error {
 		network := net.NameToNetwork[networkId]
 		if network == nil {
 			network = NewNetwork(networkId)
-		}
-		if network.IPToPod[pod.IP] != nil {
-			log.Panicf("Pod already exists, this should not be the case case since pods have unique ips")
 		}
 		if net.IpToNetworks[pod.IP] == nil {
 			net.IpToNetworks[pod.IP] = make(NetworkMap)
@@ -174,6 +171,7 @@ func (pods *Pods) Delete(namespace, name string) {
 func (pods *Pods) Networks() (*Networks, error) {
 	networks := NewNetworks()
 	for _, pod := range pods.Pods {
+		log.Printf("Adding pod %s/%s", pod.Namespace, pod.Name)
 		err := networks.Add(pod)
 		if err != nil {
 			return nil, err
