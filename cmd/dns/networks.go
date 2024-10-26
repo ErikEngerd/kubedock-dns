@@ -50,17 +50,6 @@ func (net *Network) Add(pod *Pod) error {
 	return nil
 }
 
-func (net *Network) Delete(ip IPAddress) {
-	pod := net.IPToPod[ip]
-	if pod == nil {
-		return
-	}
-	delete(net.IPToPod, pod.IP)
-	for _, hostAlias := range pod.HostAliases {
-		delete(net.HostAliasToPod, hostAlias)
-	}
-}
-
 // Networks is not thread-safe and is meant to be used using copy-on-write
 // This make the design a lot easier since it will support many change scenario's
 // out of the box.
@@ -118,21 +107,6 @@ func (net *Networks) Add(pod *Pod) error {
 	net.NameToNetwork[pod.Network] = network
 
 	return nil
-}
-
-func (net *Networks) Delete(ip IPAddress) {
-	network := net.IpToNetwork[ip]
-	if network == nil {
-		log.Printf("delete: IP %s is not in any network", ip)
-		return
-	}
-	network.Delete(ip)
-
-	delete(net.IpToNetwork, ip)
-	if len(network.IPToPod) == 0 {
-		log.Printf("No more pods in network %s, deleting it", network.Id)
-		delete(net.NameToNetwork, network.Id)
-	}
 }
 
 func (net *Networks) LogNetworks() {
