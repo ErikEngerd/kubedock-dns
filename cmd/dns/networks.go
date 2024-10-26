@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"slices"
 )
 
 type IPAddress string
@@ -72,39 +71,21 @@ func (net *Networks) Add(pod *Pod) error {
 	if pod.Network == "" {
 		log.Panicf("Pod network is not set: %+v", pod)
 	}
+
 	// is there a network that contains the pod ip?
 	network := net.NameToNetwork[pod.Network]
 	if network == nil {
 		network = NewNetwork(pod.Network)
 	}
-
-	// is there a Pod already registered for htis IP, and if so, is it the
-	// same pod
-	existingPod := network.IPToPod[pod.IP]
-	log.Printf("Existing pod %+v", existingPod)
-	if existingPod != nil {
-		if existingPod.Namespace == existingPod.Namespace && existingPod.Name == pod.Name {
-			// looks like same pod: hostAliases and network Id must be the same
-			if !slices.Equal(existingPod.HostAliases, pod.HostAliases) {
-				log.Panicf("Pod %+v registered twice with different hostaliases", pod)
-			}
-			if existingPod.Network != pod.Network {
-				log.Panicf("Pod %+v registered twice with different network", pod)
-			}
-		} else {
-			// another pod with te same IP? This should not happen.
-			log.Panicf("Two pods with same ip: %+v and %+v", pod, existingPod)
-		}
-		return nil
+	if network.IPToPod[pod.IP] != nil {
+		log.Panicf("Pod already exists, this should not be the case case since pods have unique ips")
 	}
-
+	net.IpToNetwork[pod.IP] = network
+	net.NameToNetwork[pod.Network] = network
 	err := network.Add(pod)
 	if err != nil {
 		return err
 	}
-
-	net.IpToNetwork[pod.IP] = network
-	net.NameToNetwork[pod.Network] = network
 
 	return nil
 }
