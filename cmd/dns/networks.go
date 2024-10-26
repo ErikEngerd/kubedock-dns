@@ -52,15 +52,18 @@ func (net *Network) Add(pod *Pod) error {
 // Networks is not thread-safe and is meant to be used using copy-on-write
 // This make the design a lot easier since it will support many change scenario's
 // out of the box.
+
+type NetworkMap map[NetworkId]*Network
+
 type Networks struct {
-	NameToNetwork map[NetworkId]*Network
-	IpToNetwork   map[IPAddress]*Network
+	NameToNetwork NetworkMap
+	IpToNetworks  map[IPAddress]NetworkMap
 }
 
 func NewNetworks() *Networks {
 	return &Networks{
-		NameToNetwork: make(map[NetworkId]*Network),
-		IpToNetwork:   make(map[IPAddress]*Network),
+		NameToNetwork: make(NetworkMap),
+		IpToNetworks:  make(map[IPAddress]NetworkMap),
 	}
 }
 
@@ -81,7 +84,10 @@ func (net *Networks) Add(pod *Pod) error {
 		if network.IPToPod[pod.IP] != nil {
 			log.Panicf("Pod already exists, this should not be the case case since pods have unique ips")
 		}
-		net.IpToNetwork[pod.IP] = network
+		if net.IpToNetworks[pod.IP] == nil {
+			net.IpToNetworks[pod.IP] = make(NetworkMap)
+		}
+		net.IpToNetworks[pod.IP][networkId] = network
 		net.NameToNetwork[networkId] = network
 		err := network.Add(pod)
 		if err != nil {
@@ -93,7 +99,7 @@ func (net *Networks) Add(pod *Pod) error {
 }
 
 func (net *Networks) LogNetworks() {
-	log.Printf("Network count: %d", len(net.IpToNetwork))
+	log.Printf("Network count: %d", len(net.NameToNetwork))
 	for networkId, network := range net.NameToNetwork {
 		log.Printf("Network %s", networkId)
 		for ip, pod := range network.IPToPod {
@@ -113,27 +119,31 @@ func (net *Networks) LogNetworks() {
 }
 
 func (net *Networks) Lookup(sourceIp IPAddress, hostname Hostname) IPAddress {
-	network := net.IpToNetwork[sourceIp]
-	if network == nil {
+	networks := net.IpToNetworks[sourceIp]
+	if networks == nil {
 		return ""
 	}
-	pod := network.HostAliasToPod[hostname]
-	if pod == nil {
-		return ""
+	for _, network := range networks {
+		pod := network.HostAliasToPod[hostname]
+		if pod != nil {
+			return pod.IP
+		}
 	}
-	return pod.IP
+	return ""
 }
 
 func (net *Networks) ReverseLookup(sourceIp IPAddress, ip IPAddress) []Hostname {
-	network := net.IpToNetwork[sourceIp]
-	if network == nil {
+	networks := net.IpToNetworks[sourceIp]
+	if networks == nil {
 		return nil
 	}
-	pod := network.IPToPod[ip]
-	if pod == nil {
-		return nil
+	for _, network := range networks {
+		pod := network.IPToPod[ip]
+		if pod != nil {
+			return pod.HostAliases
+		}
 	}
-	return pod.HostAliases
+	return nil
 }
 
 type Pods struct {
