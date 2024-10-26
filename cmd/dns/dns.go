@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net"
-	"os"
 	"sync"
 
 	"github.com/miekg/dns"
@@ -13,6 +12,8 @@ type KubeDockDns struct {
 	mutex             sync.RWMutex
 	networks          *Networks
 	upstreamDnsServer string
+
+	overrideSourceIP IPAddress
 }
 
 func NewKubeDockDns(upstreamDnsServer string) *KubeDockDns {
@@ -24,11 +25,15 @@ func NewKubeDockDns(upstreamDnsServer string) *KubeDockDns {
 	return &server
 }
 
-func (dns *KubeDockDns) SetNetworks(networks *Networks) {
-	dns.mutex.Lock()
-	defer dns.mutex.Unlock()
+func (dnsServer *KubeDockDns) OverrideSourceIP(sourceIP IPAddress) {
+	dnsServer.overrideSourceIP = sourceIP
+}
 
-	dns.networks = networks
+func (dnsServer *KubeDockDns) SetNetworks(networks *Networks) {
+	dnsServer.mutex.Lock()
+	defer dnsServer.mutex.Unlock()
+
+	dnsServer.networks = networks
 }
 
 func (dnsServer *KubeDockDns) Serve() {
@@ -51,7 +56,7 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 
 	for _, question := range r.Question {
 		if question.Qtype == dns.TypeA {
-			sourceIp := IPAddress(os.Getenv("KUBEDOCK_DNS_SOURCE_IP"))
+			sourceIp := dnsServer.overrideSourceIP
 			if sourceIp == "" {
 				sourceIp = IPAddress(w.RemoteAddr().String())
 			}
@@ -68,9 +73,9 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 						Name:   question.Name,
 						Rrtype: dns.TypeA,
 						Class:  dns.ClassINET,
-						Ttl:    300, // Time-to-live in seconds
+						Ttl:    300,
 					},
-					A: net.ParseIP(string(ip)), // Example IP address
+					A: net.ParseIP(string(ip)),
 				}
 				m.Answer = append(m.Answer, rr)
 				continue
@@ -95,16 +100,3 @@ func (dnsServer *KubeDockDns) forwardToUpstream(r *dns.Msg) *dns.Msg {
 	}
 	return resp
 }
-
-//
-//func mainOld() {
-//	clientConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-//	if err != nil {
-//		panic(err)
-//	}
-//	upstreamDnsServer := clientConfig.Servers[0]
-//	log.Printf("DNS server %s", upstreamDnsServer)
-//	kubedocDns := NewKubeDockDns(upstreamDnsServer + ":53")
-//	kubedocDns.AddCname("postgres.ns.svc.cluster.local", "nu.nl")
-//	kubedocDns.Serve()
-//}

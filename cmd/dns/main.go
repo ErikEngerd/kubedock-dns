@@ -138,6 +138,11 @@ func main() {
 
 	pods := NewPods()
 	dns := createDns()
+	sourceIp := os.Getenv("KUBEDOCK_DNS_SOURCE_IP")
+	if sourceIp != "" {
+		dns.OverrideSourceIP(IPAddress(sourceIp))
+	}
+
 	go func() {
 		dns.Serve()
 	}()
