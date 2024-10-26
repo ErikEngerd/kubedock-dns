@@ -1,0 +1,60 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: dns
+  name: dns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dns
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+      labels:
+        app: dns
+    spec:
+      serviceAccountName: kubedock-dns
+      containers:
+      - image: localhost:5000/kubedock-dns:1.0.0
+        imagePullPolicy: Always
+        name: kubedock-dns
+{{/*        command:*/}}
+{{/*          - tail*/}}
+{{/*          - -f*/}}
+{{/*          - /dev/null*/}}
+        ports:
+          - containerPort: 1053
+            name: dns
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dns
+  name: dns
+spec:
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: 1053
+  selector:
+    app: dns
+  type: ClusterIP
+
+
+
+
+
+
+
+
+
+
+
+

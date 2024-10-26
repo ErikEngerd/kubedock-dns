@@ -57,6 +57,7 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 	sourceIp := dnsServer.overrideSourceIP
 	if sourceIp == "" {
 		sourceIp = IPAddress(w.RemoteAddr().String())
+		sourceIp = IPAddress(strings.Split(string(sourceIp), ":")[0])
 	}
 
 	m := new(dns.Msg)

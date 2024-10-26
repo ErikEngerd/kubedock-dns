@@ -1,0 +1,4 @@
+bin/
+.env
+*_templ.go
+.idea/

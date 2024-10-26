@@ -23,5 +23,11 @@ clean:
 
 all: build
 
+images:
+	docker compose build
+
+helminstall: images
+	helm upgrade --install dns helm/dns
+
 push: images
 	docker compose --profile build push

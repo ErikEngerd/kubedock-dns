@@ -116,12 +116,13 @@ func (net *Networks) LogNetworks() {
 }
 
 func (net *Networks) Lookup(sourceIp IPAddress, hostname Hostname) IPAddress {
-	log.Printf("Lookup source ip %s host %s", sourceIp, hostname)
+	log.Printf("Lookup source ip '%s' host '%s'", sourceIp, hostname)
 	networks := net.IpToNetworks[sourceIp]
-	log.Printf("Networks: %+v", net)
+	log.Printf("Networks: %+v", net.IpToNetworks)
 	if networks == nil {
 		return ""
 	}
+	log.Printf("No networks: %d", len(networks))
 	for _, network := range networks {
 		log.Printf("Examining network %s", network.Id)
 		pod := network.HostAliasToPod[hostname]
