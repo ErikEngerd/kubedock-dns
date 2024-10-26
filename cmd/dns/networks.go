@@ -15,7 +15,7 @@ type Pod struct {
 	Namespace   string
 	Name        string
 	HostAliases []Hostname
-	Network     NetworkId
+	Networks    []NetworkId
 }
 
 type Network struct {
@@ -37,8 +37,8 @@ func (net *Network) Add(pod *Pod) error {
 	for _, hostAlias := range pod.HostAliases {
 		existingPod := net.HostAliasToPod[hostAlias]
 		if existingPod != nil {
-			return fmt.Errorf("Pod %+v has hostAlias %s which is already mapped to another pod %+v",
-				pod, hostAlias, existingPod)
+			return fmt.Errorf("Pod %+v has hostAlias %s in network %s which is already mapped to another pod %+v",
+				pod, hostAlias, net.Id, existingPod)
 		}
 	}
 
@@ -68,23 +68,25 @@ func (net *Networks) Add(pod *Pod) error {
 	if pod.IP == "" {
 		log.Panicf("Pod IP is not set: %+v", pod)
 	}
-	if pod.Network == "" {
-		log.Panicf("Pod network is not set: %+v", pod)
+	if len(pod.Networks) == 0 {
+		log.Panicf("Pod networks are not set: %+v", pod)
 	}
 
-	// is there a network that contains the pod ip?
-	network := net.NameToNetwork[pod.Network]
-	if network == nil {
-		network = NewNetwork(pod.Network)
-	}
-	if network.IPToPod[pod.IP] != nil {
-		log.Panicf("Pod already exists, this should not be the case case since pods have unique ips")
-	}
-	net.IpToNetwork[pod.IP] = network
-	net.NameToNetwork[pod.Network] = network
-	err := network.Add(pod)
-	if err != nil {
-		return err
+	for _, networkId := range pod.Networks {
+		// is there a network that contains the pod ip?
+		network := net.NameToNetwork[networkId]
+		if network == nil {
+			network = NewNetwork(networkId)
+		}
+		if network.IPToPod[pod.IP] != nil {
+			log.Panicf("Pod already exists, this should not be the case case since pods have unique ips")
+		}
+		net.IpToNetwork[pod.IP] = network
+		net.NameToNetwork[networkId] = network
+		err := network.Add(pod)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

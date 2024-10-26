@@ -59,14 +59,13 @@ func podChange(pods *Pods, pod *corev1.Pod) {
 			log.Printf("Pod %s/%s has more than one network, this is currently not supported",
 				pod.Namespace, pod.Name)
 		}
-		network := networks[0]
 
 		podObj := Pod{
 			IP:          IPAddress(pod.Status.PodIP),
 			Namespace:   pod.Namespace,
 			Name:        pod.Name,
 			HostAliases: hostaliases,
-			Network:     network,
+			Networks:    networks,
 		}
 		pods.AddOrUpdate(&podObj)
 		net, err := pods.Networks()
