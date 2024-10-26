@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/miekg/dns"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
@@ -28,7 +29,7 @@ func getPod(obj any) *corev1.Pod {
 	return pod
 }
 
-func podChange(pods *Pods, pod *corev1.Pod) {
+func podChange(pods *Pods, dns *KubeDockDns, pod *corev1.Pod) {
 	//j, _ := json.Marshal(obj)
 	//log.Printf("%s\n", string(j))
 
@@ -73,11 +74,12 @@ func podChange(pods *Pods, pod *corev1.Pod) {
 			log.Printf("Error adding pod %s/%s: %v", pod.Namespace, pod.Name, err)
 			return
 		}
+		dns.SetNetworks(net)
 		net.LogNetworks()
 	}
 }
 
-func podDeletion(pods *Pods, pod *corev1.Pod) {
+func podDeletion(pods *Pods, dns *KubeDockDns, pod *corev1.Pod) {
 	log.Printf("delete: %s/%s %s", pod.ObjectMeta.Namespace,
 		pod.ObjectMeta.Name, pod.Status.PodIP)
 	pods.Delete(pod.Namespace, pod.Name)
@@ -86,7 +88,19 @@ func podDeletion(pods *Pods, pod *corev1.Pod) {
 		log.Printf("Error deleting pod %v: %v", pod, err)
 		return
 	}
+	dns.SetNetworks(net)
 	net.LogNetworks()
+}
+
+func createDns() *KubeDockDns {
+	clientConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+	if err != nil {
+		panic(err)
+	}
+	upstreamDnsServer := clientConfig.Servers[0]
+	log.Printf("DNS server %s", upstreamDnsServer)
+	kubedocDns := NewKubeDockDns(upstreamDnsServer + ":53")
+	return kubedocDns
 }
 
 func main() {
@@ -123,6 +137,10 @@ func main() {
 	log.Printf("Watching namespace %s", namespace)
 
 	pods := NewPods()
+	dns := createDns()
+	go func() {
+		dns.Serve()
+	}()
 
 	watchlist := cache.NewListWatchFromClient(
 		clientset.CoreV1().RESTClient(),
@@ -136,13 +154,13 @@ func main() {
 		ObjectType:    &corev1.Pod{},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				podChange(pods, getPod(obj))
+				podChange(pods, dns, getPod(obj))
 			},
 			UpdateFunc: func(_ any, obj any) {
-				podChange(pods, getPod(obj))
+				podChange(pods, dns, getPod(obj))
 			},
 			DeleteFunc: func(obj any) {
-				podDeletion(pods, getPod(obj))
+				podDeletion(pods, dns, getPod(obj))
 			},
 		},
 		ResyncPeriod: 0,
