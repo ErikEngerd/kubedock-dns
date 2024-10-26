@@ -129,6 +129,7 @@ func (net *Networks) Delete(ip IPAddress) {
 	network := net.IpToNetwork[ip]
 	if network == nil {
 		log.Printf("delete: IP %s is not in any network", ip)
+		return
 	}
 	network.Delete(ip)
 
@@ -140,10 +141,11 @@ func (net *Networks) Delete(ip IPAddress) {
 }
 
 func (net *Networks) LogNetworks() {
+	log.Printf("Network count: %d", len(net.IpToNetwork))
 	for networkId, network := range net.NameToNetwork {
 		log.Printf("Network %s", networkId)
 		for ip, pod := range network.IPToPod {
-			log.Printf("  Pod: ")
+			log.Printf("  Pod: %s/%s", pod.Namespace, pod.Name)
 			log.Printf("    IP: %s", ip)
 			for _, hostAlias := range pod.HostAliases {
 				log.Printf("    Hostalias: %s", hostAlias)
