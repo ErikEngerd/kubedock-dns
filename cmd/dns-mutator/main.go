@@ -29,6 +29,9 @@ func main() {
 	keyFile := "/etc/kubedock/pki/tls.key"
 
 	http.HandleFunc("/mutate/pods", dnsMutator.handleMutate)
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 	log.Printf("Starting webhook server on port 8443")
 	if err := http.ListenAndServeTLS(":8443", certFile, keyFile, nil); err != nil {
 		log.Fatal(err)

@@ -26,13 +26,13 @@ spec:
           volumeMounts:
             - mountPath: /etc/kubedock/pki
               name: pki
-{{/*          readinessProbe:*/}}
-{{/*            httpGet:*/}}
-{{/*              path: /healthz*/}}
-{{/*              port: 8443*/}}
-{{/*              scheme: HTTPS*/}}
-{{/*            initialDelaySeconds: 5*/}}
-{{/*            periodSeconds: 10*/}}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
       volumes:
         - name: pki
           secret:
