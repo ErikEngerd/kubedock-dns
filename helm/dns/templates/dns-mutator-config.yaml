@@ -1,0 +1,91 @@
+
+{{/*
+Mutation config with a generated secret that specifies a certificate and key signed by a certificate authority.
+The certificate authority is configured in the mutating webhook configuration so that the API server can setup
+a secure connection to the mutating admission webhook.
+
+Helm generates the secret only once and stores ca.crt tls.crt, and tls.key in this secret.
+Upon upgrades the values from this secret are used. This guarantees minimal downtime. If the certificate
+would be generated every time, then upon upgrade, the mutating webhook configuration would be temporarily
+inconsistent with the certificate used by the webhook so that deploys would fail for a short amount of time.
+
+To achieve this behavior, the Secret is generated using a pre-install, pre-upgrade hook. The pre-upgrade hook is used
+to deal with cases where the secret was deleted manually. When the secret already exists, the certificates from the
+secret are reused and the secret is not generated. Deletion of the secret is then prevented by the 'keep'
+resouce-policy of helm. This also means that the secret will remain if the chart is uninstalled.
+
+See https://masterminds.github.io/sprig/crypto.html for docs on the cryptographic functions in Helm.
+*/}}
+
+{{/*
+    { "namespace": namespace,
+      "cacert": decoded-cacert }
+*/}}
+{{- define "dns-mutator-config" }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  # TDDO: add namespace to the name.
+  name: {{ .namespace }}-dns-mutator-config
+  labels:
+    component: dns-mutator
+webhooks:
+  - name: dns-mutator.kubedock.org
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{ .namespace }}
+    objectSelector:
+      matchLabels:
+        kubedock-pod: "true"
+    admissionReviewVersions:
+      - v1
+    sideEffects: NoneOnDryRun
+    failurePolicy: Fail
+    clientConfig:
+      service:
+        name: dns-mutator
+        port: 8443
+        namespace: {{ .namespace }}
+        path: /mutate/pods
+      caBundle: {{ .cacert | b64enc }}
+    rules:
+      - apiGroups: [""]
+        resources:
+          - "pods"
+        apiVersions:
+          - "*"
+        operations:
+          - CREATE
+{{- end }}
+
+{{- $secretName := "dns-mutator-cert" }}
+{{- $secret := lookup "v1" "Secret" .Release.Namespace $secretName }}
+
+{{- if $secret }}
+
+  # Secret {{ $secretName }} is re-used
+  {{ $cacert := index $secret.data "ca.crt" | b64dec }}
+  {{- template "dns-mutator-config" (dict "namespace" .Release.Namespace "cacert" $cacert) }}
+
+{{- else }}
+
+  # Secret {{ $secretName }} created
+  {{- $ca:= genCA "kubedock-dns" 10000 }}
+  {{- $cacert := $ca.Cert }}
+  {{- $cert := genSignedCert "dnsmutator" nil (list "dns-mutator" (printf "dns-mutator.%s" .Release.Namespace) (printf "dns-mutator.%s.svc" .Release.Namespace)) 365 $ca }}
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    annotations:
+      helm.sh/hook: pre-install,pre-upgrade,pre-rollback
+      helm.sh/resource-policy: keep
+    name: {{ $secretName }}
+    namespace: {{.Release.Namespace}}
+  data:
+    ca.crt: "{{ $ca.Cert | b64enc }}"
+    tls.crt: "{{ $cert.Cert | b64enc }}"
+    tls.key: "{{ $cert.Key | b64enc }}"
+---
+  {{- template "dns-mutator-config" (dict "namespace" .Release.Namespace "cacert" $cacert) }}
+
+{{- end }}

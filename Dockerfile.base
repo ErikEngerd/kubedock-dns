@@ -10,6 +10,7 @@ ENV GOTOOLCHAIN=auto
 COPY go.mod go.sum /opt/dns/
 RUN go mod download
 COPY cmd    /opt/dns/cmd/
+COPY internal /opt/dns/internal/
 
 RUN go build -o bin ./cmd/...
 RUN find . -type f

@@ -1,0 +1,58 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dns-mutator
+  namespace: {{.Release.Namespace}}
+spec:
+  replicas: {{ .Values.dnsMutator.replicas }}
+  selector:
+    matchLabels:
+      app: dns-mutator
+  template:
+    metadata:
+      annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+      labels:
+        app: dns-mutator
+    spec:
+      serviceAccountName: kubedock-dns-mutator
+      containers:
+        - name: mutator
+          image: localhost:5000/kubedock-dns-mutator:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8443
+          volumeMounts:
+            - mountPath: /etc/kubedock/pki
+              name: pki
+{{/*          readinessProbe:*/}}
+{{/*            httpGet:*/}}
+{{/*              path: /healthz*/}}
+{{/*              port: 8443*/}}
+{{/*              scheme: HTTPS*/}}
+{{/*            initialDelaySeconds: 5*/}}
+{{/*            periodSeconds: 10*/}}
+      volumes:
+        - name: pki
+          secret:
+            secretName: dns-mutator-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dns-mutator
+  name: dns-mutator
+  namespace: {{.Release.Namespace}}
+spec:
+  ports:
+    - name: https
+      port: 8443
+      protocol: TCP
+      targetPort: 8443
+  selector:
+    app: dns-mutator
+  type: ClusterIP
+
+

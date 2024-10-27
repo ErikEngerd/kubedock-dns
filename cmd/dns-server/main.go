@@ -1,18 +1,15 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"github.com/miekg/dns"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"os"
 	"strings"
+	"wamblee.org/kubedock/dns/internal/support"
 )
 
 var KUBEDOCK_HOSTALIAS_PREFIX = "kubedock.hostalias/"
@@ -104,44 +101,9 @@ func createDns() *KubeDockDns {
 func main() {
 	flag.Parse()
 
-	// Using First sample from https://pkg.go.dev/k8s.io/client-go/tools/clientcmd to automatically deal with environment variables and default file paths
-
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	// if you want to change the loading rules (which files in which order), you can do so here
-
-	configOverrides := &clientcmd.ConfigOverrides{}
-	// if you want to change override values or bind them to flags, there are methods to help you
-
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-
-	config, err := kubeConfig.ClientConfig()
-	if err != nil {
-		log.Panicln(err.Error())
-	}
-
-	// Note that this *should* automatically sanitize sensitive fields
-	log.Println("Using configuration:", config.String())
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Panicln(err.Error())
-	}
-
-	namespace, _, err := kubeConfig.Namespace()
-	if err != nil {
-		log.Panicf("Could not get namespace")
-	}
+	clientset, namespace := support.GetKubernetesConnection()
 
 	log.Printf("Watching namespace %s", namespace)
-
-	ctx := context.Background()
-
-	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, "dns", v1.GetOptions{})
-	if err != nil {
-		log.Panicf("COuld not get dns service IP")
-	}
-	dnsServiceIP := svc.Spec.ClusterIP
-	log.Printf("Service IP is %s", dnsServiceIP)
 
 	pods := NewPods()
 	dns := createDns()

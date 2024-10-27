@@ -1,4 +1,5 @@
 
 
-image:
-x: "hello"
+
+dnsMutator:
+  replicas: 1
