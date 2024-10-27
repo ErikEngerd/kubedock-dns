@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/miekg/dns"
 	"io"
 	corev1 "k8s.io/api/core/v1"
+	"log"
 	"net/http"
+	"strconv"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +31,7 @@ type PatchOperation struct {
 
 type DnsMutator struct {
 	dnsServiceIP string
+	clientConfig *dns.ClientConfig
 }
 
 func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) {
@@ -55,15 +59,33 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	log.Printf("Adding dnsconfig and policy to pod %s/%s", pod.Namespace, pod.Name)
+
 	// Create patch operations
 	var patches []PatchOperation
 
-	// Example mutation: Add a label
-	patches = append(patches, PatchOperation{
-		Op:    "add",
-		Path:  "/metadata/labels/injected-by",
-		Value: "admission-controller",
-	})
+	ndots := strconv.Itoa(mutator.clientConfig.Ndots)
+	timeout := strconv.Itoa(mutator.clientConfig.Timeout)
+	attempts := strconv.Itoa(mutator.clientConfig.Attempts)
+	patches = append(patches,
+		PatchOperation{
+			Op:    "add",
+			Path:  "/spec/dnsPolicy",
+			Value: "None",
+		}, PatchOperation{
+			Op:   "add",
+			Path: "/spec/dnsConfig",
+			Value: corev1.PodDNSConfig{
+				Nameservers: []string{mutator.dnsServiceIP},
+				Searches:    mutator.clientConfig.Search,
+				Options: []corev1.PodDNSConfigOption{
+					// TODO: examine whether "port" works
+					{Name: "ndots", Value: &ndots},
+					{Name: "timeout", Value: &timeout},
+					{Name: "attempts", Value: &attempts},
+				},
+			},
+		})
 
 	// Create the patch bytes
 	patchBytes, err := json.Marshal(patches)

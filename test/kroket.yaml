@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kubedock.hostalias/0: "kroket.nl"
+    kubedock.network/0: "mynet"
+  labels:
+    kubedock-pod: "true"
+  name: kroket
+  namespace: kubedock
+spec:
+  containers:
+  - image: wamblee/networktools
+    name: kroket
+    command:
+      - tail
+      - -f
+      - /dev/null

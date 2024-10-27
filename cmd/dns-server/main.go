@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/miekg/dns"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
@@ -88,10 +87,7 @@ func podDeletion(pods *Pods, dns *KubeDockDns, pod *corev1.Pod) {
 }
 
 func createDns() *KubeDockDns {
-	clientConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-	if err != nil {
-		panic(err)
-	}
+	clientConfig := support.GetClientConfig()
 	upstreamDnsServer := clientConfig.Servers[0]
 	log.Printf("DNS server %s", upstreamDnsServer)
 	kubedocDns := NewKubeDockDns(upstreamDnsServer+":53", ":1053")

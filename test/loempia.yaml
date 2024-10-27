@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kubedock.hostalias/0: "loempia.nl"
+    kubedock.hostalias/1: "frikandel.nl"
+    kubedock.network/0: "othernet"
+  labels:
+    kubedock-pod: "true"
+  name: loempia
+  namespace: kubedock
+spec:
+  containers:
+  - image: wamblee/networktools
+    name: loempia
+    command:
+      - tail
+      - -f
+      - /dev/null

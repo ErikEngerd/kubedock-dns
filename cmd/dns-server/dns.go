@@ -90,16 +90,17 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 
 func (dnsServer *KubeDockDns) resolveHostname(question dns.Question, sourceIp IPAddress) []dns.RR {
 	log.Printf("dns: A %s", question.Name)
-	ip := dnsServer.networks.Lookup(
+	ips := dnsServer.networks.Lookup(
 		sourceIp,
 		Hostname(question.Name[:len(question.Name)-1]))
 
-	if ip != "" {
+	rrs := make([]dns.RR, 0)
+	for _, ip := range ips {
 		log.Printf("dns: %s -> %s", question.Name, ip)
 		rr := dnsServer.createAResponse(question, ip)
-		return []dns.RR{rr}
+		rrs = append(rrs, rr)
 	}
-	return nil
+	return rrs
 }
 
 func PTRtoIP(ptr string) string {

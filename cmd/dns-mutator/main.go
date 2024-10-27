@@ -23,6 +23,7 @@ func main() {
 
 	dnsMutator := DnsMutator{
 		dnsServiceIP: dnsServiceIP,
+		clientConfig: support.GetClientConfig(),
 	}
 
 	certFile := "/etc/kubedock/pki/tls.crt"

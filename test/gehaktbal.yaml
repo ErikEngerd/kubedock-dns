@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kubedock.hostalias/0: "gehaktbal.nl"
+    kubedock.network/0: "mynet"
+    kubedock.network/1: "othernet"
+  labels:
+    kubedock-pod: "true"
+  name: gehaktbal
+  namespace: kubedock
+spec:
+  containers:
+  - image: wamblee/networktools
+    name: gehaktbal
+    command:
+      - tail
+      - -f
+      - /dev/null
