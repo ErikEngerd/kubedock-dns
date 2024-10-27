@@ -1,4 +1,4 @@
-FROM alpine:3.20.2 as builder
+FROM alpine:3.20.2
 
 RUN apk update && apk add go
 RUN mkdir -p /opt/dns/bin
@@ -13,9 +13,3 @@ COPY cmd    /opt/dns/cmd/
 
 RUN go build -o bin ./cmd/...
 RUN find . -type f
-
-FROM scratch
-
-COPY --from=builder /opt/dns/bin/dns /opt/dns/bin/
-
-ENTRYPOINT ["/opt/dns/bin/dns" ]

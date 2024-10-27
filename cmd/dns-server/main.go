@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"github.com/miekg/dns"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -131,6 +133,15 @@ func main() {
 	}
 
 	log.Printf("Watching namespace %s", namespace)
+
+	ctx := context.Background()
+
+	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, "dns", v1.GetOptions{})
+	if err != nil {
+		log.Panicf("COuld not get dns service IP")
+	}
+	dnsServiceIP := svc.Spec.ClusterIP
+	log.Printf("Service IP is %s", dnsServiceIP)
 
 	pods := NewPods()
 	dns := createDns()
