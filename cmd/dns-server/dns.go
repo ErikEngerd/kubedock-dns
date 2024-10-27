@@ -51,8 +51,13 @@ func (dnsServer *KubeDockDns) Serve() {
 }
 
 func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
+	// limit the time we take the read lock by getting a snapshot of the network config
+	// and using that. This allows the read locks to be short so that udpates to the network
+	// config can be quick and do not depend on the time for submitting requests to an upstream
+	// DNS
 	dnsServer.mutex.RLock()
-	defer dnsServer.mutex.RUnlock()
+	networkSnapshot := dnsServer.networks
+	dnsServer.mutex.RUnlock()
 
 	sourceIp := dnsServer.overrideSourceIP
 	if sourceIp == "" {
@@ -68,10 +73,10 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 		var rrs []dns.RR
 		if question.Qtype == dns.TypeA {
 			log.Printf("dns: A %s", question.Name)
-			rrs = dnsServer.resolveHostname(question, sourceIp)
+			rrs = resolveHostname(networkSnapshot, question, sourceIp)
 		} else if question.Qtype == dns.TypePTR {
 			log.Printf("dns: PTR %s", question.Name)
-			rrs = dnsServer.resolveIP(question, sourceIp)
+			rrs = resolveIP(networkSnapshot, question, sourceIp)
 		}
 		if len(rrs) > 0 {
 			for _, rr := range rrs {
@@ -88,16 +93,16 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 	w.WriteMsg(m)
 }
 
-func (dnsServer *KubeDockDns) resolveHostname(question dns.Question, sourceIp IPAddress) []dns.RR {
+func resolveHostname(networks *Networks, question dns.Question, sourceIp IPAddress) []dns.RR {
 	log.Printf("dns: A %s", question.Name)
-	ips := dnsServer.networks.Lookup(
+	ips := networks.Lookup(
 		sourceIp,
 		Hostname(question.Name[:len(question.Name)-1]))
 
 	rrs := make([]dns.RR, 0)
 	for _, ip := range ips {
 		log.Printf("dns: %s -> %s", question.Name, ip)
-		rr := dnsServer.createAResponse(question, ip)
+		rr := createAResponse(question, ip)
 		rrs = append(rrs, rr)
 	}
 	return rrs
@@ -119,11 +124,11 @@ func PTRtoIP(ptr string) string {
 	return strings.Join(parts, ".")
 }
 
-func (dnsServer *KubeDockDns) resolveIP(question dns.Question, sourceIp IPAddress) []dns.RR {
+func resolveIP(networks *Networks, question dns.Question, sourceIp IPAddress) []dns.RR {
 	log.Printf("dns: A %s", question.Name)
 
 	ip := PTRtoIP(question.Name)
-	hosts := dnsServer.networks.ReverseLookup(
+	hosts := networks.ReverseLookup(
 		sourceIp,
 		IPAddress(ip))
 
@@ -131,13 +136,13 @@ func (dnsServer *KubeDockDns) resolveIP(question dns.Question, sourceIp IPAddres
 
 	for _, host := range hosts {
 		log.Printf("dns: %s -> %s", question.Name, host)
-		rr := dnsServer.createPTRResponse(question, host)
+		rr := createPTRResponse(question, host)
 		rrs = append(rrs, rr)
 	}
 	return rrs
 }
 
-func (dnsServer *KubeDockDns) createAResponse(question dns.Question, ip IPAddress) *dns.A {
+func createAResponse(question dns.Question, ip IPAddress) *dns.A {
 	rr := &dns.A{
 		Hdr: dns.RR_Header{
 			Name:   question.Name,
@@ -150,7 +155,7 @@ func (dnsServer *KubeDockDns) createAResponse(question dns.Question, ip IPAddres
 	return rr
 }
 
-func (dnsServer *KubeDockDns) createPTRResponse(question dns.Question, host Hostname) dns.RR {
+func createPTRResponse(question dns.Question, host Hostname) dns.RR {
 	log.Printf("Creating ptr with %v", host)
 	rr := &dns.PTR{
 		Hdr: dns.RR_Header{

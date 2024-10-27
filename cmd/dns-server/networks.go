@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"reflect"
+	"time"
 )
 
 type IPAddress string
@@ -163,7 +165,15 @@ func NewPods() *Pods {
 }
 
 func (pods *Pods) AddOrUpdate(pod *Pod) {
-	pods.Pods[pod.Namespace+"/"+pod.Name] = pod
+	key := pod.Namespace + "/" + pod.Name
+	oldpod := pods.Pods[key]
+	if oldpod != nil {
+		if reflect.DeepEqual(oldpod, pod) {
+			log.Printf("no change to pod definition %s/%s", pod.Namespace, pod.Name)
+			return
+		}
+	}
+	pods.Pods[key] = pod
 }
 
 func (pods *Pods) Delete(namespace, name string) {
@@ -171,6 +181,11 @@ func (pods *Pods) Delete(namespace, name string) {
 }
 
 func (pods *Pods) Networks() (*Networks, error) {
+	t0 := time.Now()
+	defer func() {
+		dt := time.Now().Sub(t0)
+		log.Printf("Update to network definition took %v ns", dt.Nanoseconds())
+	}()
 	networks := NewNetworks()
 	for _, pod := range pods.Pods {
 		log.Printf("Adding pod %s/%s", pod.Namespace, pod.Name)

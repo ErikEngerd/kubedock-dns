@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kubedock.hostalias/0: "db"
+    kubedock.network/0: "test2"
+  labels:
+    kubedock-pod: "true"
+  name: db2
+  namespace: kubedock
+spec:
+  containers:
+  - image: wamblee/networktools
+    name: db
+    command:
+      - tail
+      - -f
+      - /dev/null
