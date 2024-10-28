@@ -96,7 +96,7 @@ func (net *Networks) Add(pod *Pod) error {
 	return nil
 }
 
-func (net *Networks) LogNetworks() {
+func (net *Networks) Log() {
 	log.Printf("Network count: %d", len(net.NameToNetwork))
 	for networkId, network := range net.NameToNetwork {
 		log.Printf("Network %s", networkId)
@@ -163,16 +163,17 @@ func NewPods() *Pods {
 	}
 }
 
-func (pods *Pods) AddOrUpdate(pod *Pod) {
+func (pods *Pods) AddOrUpdate(pod *Pod) bool {
 	key := pod.Namespace + "/" + pod.Name
 	oldpod := pods.Pods[key]
 	if oldpod != nil {
 		if reflect.DeepEqual(oldpod, pod) {
 			log.Printf("no change to pod definition %s/%s", pod.Namespace, pod.Name)
-			return
+			return false
 		}
 	}
 	pods.Pods[key] = pod
+	return true
 }
 
 func (pods *Pods) Delete(namespace, name string) {
@@ -188,6 +189,8 @@ func (pods *Pods) Networks() (*Networks, error) {
 	}()
 	networks := NewNetworks()
 	for _, pod := range pods.Pods {
+		// TODO robustness, should continue with other pods in case one pod fails
+		// and collect all errors
 		err := networks.Add(pod)
 		if err != nil {
 			return nil, err

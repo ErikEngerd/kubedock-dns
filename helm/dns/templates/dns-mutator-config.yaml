@@ -43,7 +43,7 @@ webhooks:
     failurePolicy: Fail
     clientConfig:
       service:
-        name: dns-mutator
+        name: dns-server
         port: 8443
         namespace: {{ .namespace }}
         path: /mutate/pods
@@ -72,7 +72,7 @@ webhooks:
   # Secret {{ $secretName }} created
   {{- $ca:= genCA "kubedock-dns" 10000 }}
   {{- $cacert := $ca.Cert }}
-  {{- $cert := genSignedCert "dnsmutator" nil (list "dns-mutator" (printf "dns-mutator.%s" .Release.Namespace) (printf "dns-mutator.%s.svc" .Release.Namespace)) 365 $ca }}
+  {{- $cert := genSignedCert "dnsmutator" nil (list "dns-mutator" (printf "dns-server.%s" .Release.Namespace) (printf "dns-server.%s.svc" .Release.Namespace)) 365 $ca }}
   apiVersion: v1
   kind: Secret
   metadata:

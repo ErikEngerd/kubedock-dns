@@ -1,31 +1,13 @@
 
 services:
 
-  dns-base:
-    image: $REGISTRY/kubedock-dns-base:1.0.0
-    build:
-      context: .
-      dockerfile: Dockerfile.base
-
-  dns-mutator:
-    image: $REGISTRY/kubedock-dns-mutator:1.0.0
-    build:
-      context: .
-      dockerfile: Dockerfile.mutator
-      args:
-        BASE_IMAGE: $REGISTRY/kubedock-dns-base:1.0.0
-    depends_on:
-      - dns-base
-
   dns-server:
     image: $REGISTRY/kubedock-dns-server:1.0.0
     build:
       context: .
-      dockerfile: Dockerfile.server
+      dockerfile: Dockerfile
       args:
         BASE_IMAGE: $REGISTRY/kubedock-dns-base:1.0.0
     ports:
       - 8000:8000
-    depends_on:
-      - dns-base
 

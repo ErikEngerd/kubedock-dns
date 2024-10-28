@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/miekg/dns"
 	"io"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
 	"strconv"
+	"wamblee.org/kubedock/dns/internal/support"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +25,10 @@ var (
 	runtimeScheme = runtime.NewScheme()
 	codecs        = serializer.NewCodecFactory(runtimeScheme)
 	deserializer  = codecs.UniversalDeserializer()
+)
+
+const (
+	CONTROLLER_NAME = "kubedock-admission"
 )
 
 type PatchOperation struct {
@@ -61,7 +69,37 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 
 	log.Printf("Adding dnsconfig and policy to pod %s/%s", pod.Namespace, pod.Name)
 
-	// Create patch operations
+	reject := false
+
+	var admissionResponse *admissionv1.AdmissionResponse
+	if reject {
+		admissionResponse = mutator.rejectPod(admissionReview)
+	} else {
+		admissionResponse = mutator.addDnsConfiguration(w, admissionReview)
+		if admissionResponse == nil {
+			return
+		}
+	}
+
+	responseAdmissionReview := admissionv1.AdmissionReview{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "admission.k8s.io/v1",
+			Kind:       "AdmissionReview",
+		},
+		Response: admissionResponse,
+	}
+
+	resp, err := json.Marshal(responseAdmissionReview)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not marshal response: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resp)
+}
+
+func (mutator *DnsMutator) addDnsConfiguration(w http.ResponseWriter, admissionReview admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	var patches []PatchOperation
 
 	ndots := strconv.Itoa(mutator.clientConfig.Ndots)
@@ -91,7 +129,7 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 	patchBytes, err := json.Marshal(patches)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Could not marshal patch: %v", err), http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	// Create the admission response
@@ -105,21 +143,51 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 		}(),
 	}
 
-	// Create the admission review response
-	responseAdmissionReview := admissionv1.AdmissionReview{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "admission.k8s.io/v1",
-			Kind:       "AdmissionReview",
+	return &admissionResponse
+}
+
+func (mutator *DnsMutator) rejectPod(admissionReview admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+	reviewResponse := admissionv1.AdmissionResponse{
+		UID:     admissionReview.Request.UID,
+		Allowed: false,
+		Result: &metav1.Status{
+			Status:  "Failure",
+			Message: "Pod deployment rejected due to policy violation",
+			Reason:  "Your specific reason here",
+			Code:    403,
 		},
-		Response: &admissionResponse,
 	}
 
-	resp, err := json.Marshal(responseAdmissionReview)
+	// Add audit annotations if needed
+	reviewResponse.AuditAnnotations = map[string]string{
+		"rejected-by": CONTROLLER_NAME,
+		"reason":      "policy-violation",
+	}
+	return &reviewResponse
+}
+
+func runAdmisstionController(ctx context.Context,
+	clientset *kubernetes.Clientset,
+	namespace string,
+	dnsServiceName string,
+	crtFile string,
+	keyFile string) error {
+	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, dnsServiceName, v1.GetOptions{})
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not marshal response: %v", err), http.StatusInternalServerError)
-		return
+		return fmt.Errorf("Could not get dns service IP for service '%s'", dnsServiceName)
+	}
+	dnsServiceIP := svc.Spec.ClusterIP
+	log.Printf("Service IP is %s", dnsServiceIP)
+
+	dnsMutator := DnsMutator{
+		dnsServiceIP: dnsServiceIP,
+		clientConfig: support.GetClientConfig(),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(resp)
+	http.HandleFunc("/mutate/pods", dnsMutator.handleMutate)
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	log.Printf("Starting webhook server on port 8443")
+	return http.ListenAndServeTLS(":8443", crtFile, keyFile, nil)
 }

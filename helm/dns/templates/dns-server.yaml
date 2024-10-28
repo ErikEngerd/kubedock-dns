@@ -30,6 +30,22 @@ spec:
         ports:
           - containerPort: 1053
             name: dns
+          - containerPort: 8443
+            name: https
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+          - mountPath: /etc/kubedock/pki
+            name: pki
+      volumes:
+        - name: pki
+          secret:
+            secretName: dns-mutator-cert
 ---
 apiVersion: v1
 kind: Service
@@ -43,9 +59,15 @@ spec:
     port: 53
     protocol: UDP
     targetPort: 1053
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
   selector:
     app: dns-server
   type: ClusterIP
+
+
 
 
 
