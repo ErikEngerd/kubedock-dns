@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-	"time"
 )
 
 type IPAddress string
@@ -78,7 +77,7 @@ func (net *Networks) Add(pod *Pod) error {
 	}
 
 	for _, networkId := range pod.Networks {
-		// is there a network that contains the pod ip?
+		// does the pod network already exist?
 		network := net.NameToNetwork[networkId]
 		if network == nil {
 			network = NewNetwork(networkId)
@@ -181,14 +180,14 @@ func (pods *Pods) Delete(namespace, name string) {
 }
 
 func (pods *Pods) Networks() (*Networks, error) {
-	t0 := time.Now()
+	//t0 := time.Now()
 	defer func() {
-		dt := time.Now().Sub(t0)
-		log.Printf("Update to network definition took %v ns", dt.Nanoseconds())
+		//dt := time.Now().Sub(t0)
+		// TODO remove
+		//log.Printf("Update to network definition took %v ns", dt.Nanoseconds())
 	}()
 	networks := NewNetworks()
 	for _, pod := range pods.Pods {
-		log.Printf("Adding pod %s/%s", pod.Namespace, pod.Name)
 		err := networks.Add(pod)
 		if err != nil {
 			return nil, err
