@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"reflect"
+	"sync"
 )
 
 type IPAddress string
@@ -153,17 +155,22 @@ func (net *Networks) ReverseLookup(sourceIp IPAddress, ip IPAddress) []Hostname 
 }
 
 type Pods struct {
+	mutex sync.RWMutex
 	// maps pod namespace/name to pod
 	Pods map[string]*Pod
 }
 
 func NewPods() *Pods {
 	return &Pods{
-		Pods: make(map[string]*Pod),
+		mutex: sync.RWMutex{},
+		Pods:  make(map[string]*Pod),
 	}
 }
 
 func (pods *Pods) AddOrUpdate(pod *Pod) bool {
+	pods.mutex.Lock()
+	defer pods.mutex.Unlock()
+
 	key := pod.Namespace + "/" + pod.Name
 	oldpod := pods.Pods[key]
 	if oldpod != nil {
@@ -177,24 +184,36 @@ func (pods *Pods) AddOrUpdate(pod *Pod) bool {
 }
 
 func (pods *Pods) Delete(namespace, name string) {
+	pods.mutex.Lock()
+	defer pods.mutex.Unlock()
+
 	delete(pods.Pods, namespace+"/"+name)
 }
 
 func (pods *Pods) Networks() (*Networks, error) {
-	//t0 := time.Now()
-	defer func() {
-		//dt := time.Now().Sub(t0)
-		// TODO remove
-		//log.Printf("Update to network definition took %v ns", dt.Nanoseconds())
-	}()
+	pods.mutex.RLock()
+	defer pods.mutex.RUnlock()
+
 	networks := NewNetworks()
+	errorList := make([]error, 0)
 	for _, pod := range pods.Pods {
 		// TODO robustness, should continue with other pods in case one pod fails
 		// and collect all errors
 		err := networks.Add(pod)
 		if err != nil {
-			return nil, err
+			errorList = append(errorList, err)
 		}
 	}
-	return networks, nil
+	err := errors.Join(errorList...)
+	return networks, err
+}
+
+func (pods *Pods) Copy() *Pods {
+	pods.mutex.RLock()
+	defer pods.mutex.RUnlock()
+	res := NewPods()
+	for key, pod := range pods.Pods {
+		res.Pods[key] = pod
+	}
+	return res
 }

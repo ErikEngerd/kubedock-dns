@@ -83,7 +83,7 @@ func main() {
 
 	// Admission controller
 
-	if err := runAdmisstionController(ctx, clientset, namespace, "dns-server",
+	if err := runAdmisstionController(ctx, pods, clientset, namespace, "dns-server",
 		"/etc/kubedock/pki/tls.crt", "/etc/kubedock/pki/tls.key"); err != nil {
 		log.Panicf("Could not start admission controler: %+v", err)
 	}

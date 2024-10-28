@@ -32,13 +32,13 @@ func WatchPods(
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				log.Printf("Pod added")
-				pod := podChange(getPod(obj))
+				pod := getPodEssentials(getPod(obj), "")
 				if pod != nil {
 					pods.AddOrUpdate(pod)
 				}
 			},
 			UpdateFunc: func(_ any, obj any) {
-				pod := podChange(getPod(obj))
+				pod := getPodEssentials(getPod(obj), "")
 				if pod != nil {
 					pods.AddOrUpdate(pod)
 				}
@@ -66,11 +66,16 @@ func getPod(obj any) *corev1.Pod {
 	return k8spod
 }
 
-func podChange(k8spod *corev1.Pod) *Pod {
+func getPodEssentials(k8spod *corev1.Pod, overrideIP string) *Pod {
 
 	log.Printf("Pod change %s/%s", k8spod.Namespace, k8spod.Name)
-	if k8spod.Status.PodIP == "" {
+	if overrideIP == "" && k8spod.Status.PodIP == "" {
 		return nil
+	}
+
+	podIP := k8spod.Status.PodIP
+	if overrideIP != "" {
+		podIP = overrideIP
 	}
 
 	networks := make([]NetworkId, 0)
@@ -93,7 +98,7 @@ func podChange(k8spod *corev1.Pod) *Pod {
 	}
 
 	pod := Pod{
-		IP:          IPAddress(k8spod.Status.PodIP),
+		IP:          IPAddress(podIP),
 		Namespace:   k8spod.Namespace,
 		Name:        k8spod.Name,
 		HostAliases: hostaliases,

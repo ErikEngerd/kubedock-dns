@@ -38,8 +38,18 @@ type PatchOperation struct {
 }
 
 type DnsMutator struct {
+	pods         *Pods
 	dnsServiceIP string
 	clientConfig *dns.ClientConfig
+}
+
+func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConfig) *DnsMutator {
+	mutator := DnsMutator{
+		pods:         pods,
+		dnsServiceIP: dnsServiceIP,
+		clientConfig: clientConfig,
+	}
+	return &mutator
 }
 
 func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) {
@@ -60,20 +70,23 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var pod corev1.Pod
-	err = json.Unmarshal(admissionReview.Request.Object.Raw, &pod)
+	var k8spod corev1.Pod
+	err = json.Unmarshal(admissionReview.Request.Object.Raw, &k8spod)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Could not unmarshal pod: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Adding dnsconfig and policy to pod %s/%s", pod.Namespace, pod.Name)
+	log.Printf("Adding dnsconfig and policy to pod %s/%s", k8spod.Namespace, k8spod.Name)
 
-	reject := false
+	pod := getPodEssentials(&k8spod, "0.0.0.0")
+	newpods := mutator.pods.Copy()
+	newpods.AddOrUpdate(pod)
+	_, err = newpods.Networks()
 
 	var admissionResponse *admissionv1.AdmissionResponse
-	if reject {
-		admissionResponse = mutator.rejectPod(admissionReview)
+	if err != nil {
+		admissionResponse = mutator.rejectPod(admissionReview, err)
 	} else {
 		admissionResponse = mutator.addDnsConfiguration(w, admissionReview)
 		if admissionResponse == nil {
@@ -146,15 +159,16 @@ func (mutator *DnsMutator) addDnsConfiguration(w http.ResponseWriter, admissionR
 	return &admissionResponse
 }
 
-func (mutator *DnsMutator) rejectPod(admissionReview admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (mutator *DnsMutator) rejectPod(admissionReview admissionv1.AdmissionReview,
+	err error) *admissionv1.AdmissionResponse {
 	reviewResponse := admissionv1.AdmissionResponse{
 		UID:     admissionReview.Request.UID,
 		Allowed: false,
 		Result: &metav1.Status{
 			Status:  "Failure",
-			Message: "Pod deployment rejected due to policy violation",
-			Reason:  "Your specific reason here",
-			Code:    403,
+			Message: fmt.Sprintf("Network error: %v", err),
+			Reason:  metav1.StatusReasonConflict,
+			Code:    http.StatusConflict,
 		},
 	}
 
@@ -167,6 +181,7 @@ func (mutator *DnsMutator) rejectPod(admissionReview admissionv1.AdmissionReview
 }
 
 func runAdmisstionController(ctx context.Context,
+	pods *Pods,
 	clientset *kubernetes.Clientset,
 	namespace string,
 	dnsServiceName string,
@@ -179,10 +194,7 @@ func runAdmisstionController(ctx context.Context,
 	dnsServiceIP := svc.Spec.ClusterIP
 	log.Printf("Service IP is %s", dnsServiceIP)
 
-	dnsMutator := DnsMutator{
-		dnsServiceIP: dnsServiceIP,
-		clientConfig: support.GetClientConfig(),
-	}
+	dnsMutator := NewDnsMutator(pods, dnsServiceIP, support.GetClientConfig())
 
 	http.HandleFunc("/mutate/pods", dnsMutator.handleMutate)
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
