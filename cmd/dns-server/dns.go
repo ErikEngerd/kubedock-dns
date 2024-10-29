@@ -9,16 +9,42 @@ import (
 	"github.com/miekg/dns"
 )
 
+type DNSServer interface {
+	Resolve(r *dns.Msg) *dns.Msg
+}
+
+type ExternalDNSServer struct {
+	upstreamDNSServer string
+}
+
+func NewExternalDNSServer(upstreamDNSServer string) *ExternalDNSServer {
+	return &ExternalDNSServer{
+		upstreamDNSServer: upstreamDNSServer,
+	}
+}
+
+func (dnsServer *ExternalDNSServer) Resolve(r *dns.Msg) *dns.Msg {
+	c := new(dns.Client)
+	resp, _, err := c.Exchange(r, dnsServer.upstreamDNSServer)
+	if err != nil {
+		log.Printf("Error forwarding to upstream: %v", err)
+		m := new(dns.Msg)
+		m.SetRcode(r, dns.RcodeServerFailure)
+		return m
+	}
+	return resp
+}
+
 type KubeDockDns struct {
 	mutex             sync.RWMutex
 	networks          *Networks
-	upstreamDnsServer string
+	upstreamDnsServer DNSServer
 	port              string
 
 	overrideSourceIP IPAddress
 }
 
-func NewKubeDockDns(upstreamDnsServer string, port string) *KubeDockDns {
+func NewKubeDockDns(upstreamDnsServer DNSServer, port string) *KubeDockDns {
 	server := KubeDockDns{
 		mutex:             sync.RWMutex{},
 		networks:          NewNetworks(),
@@ -85,7 +111,7 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 			continue
 		}
 		log.Printf("dns: forwarding question %+v to upstream", question)
-		upstreamResponse := dnsServer.forwardToUpstream(r)
+		upstreamResponse := dnsServer.upstreamDnsServer.Resolve(r)
 		m.Answer = append(m.Answer, upstreamResponse.Answer...)
 	}
 
@@ -167,16 +193,4 @@ func createPTRResponse(question dns.Question, host Hostname) dns.RR {
 		Ptr: string(host) + ".",
 	}
 	return rr
-}
-
-func (dnsServer *KubeDockDns) forwardToUpstream(r *dns.Msg) *dns.Msg {
-	c := new(dns.Client)
-	resp, _, err := c.Exchange(r, dnsServer.upstreamDnsServer)
-	if err != nil {
-		log.Printf("Error forwarding to upstream: %v", err)
-		m := new(dns.Msg)
-		m.SetRcode(r, dns.RcodeServerFailure)
-		return m
-	}
-	return resp
 }
