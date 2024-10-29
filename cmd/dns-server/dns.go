@@ -98,7 +98,23 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 	m.SetReply(r)
 	m.Authoritative = true
 
-	for _, question := range r.Question {
+	question := r.Question
+	fallback := func() *dns.Msg {
+		return dnsServer.upstreamDnsServer.Resolve(r)
+	}
+	answer := dnsServer.answerQuestion(question, networkSnapshot, sourceIp, fallback)
+
+	m.Answer = answer
+
+	log.Printf("Writing response: %d", len(m.Answer))
+	w.WriteMsg(m)
+}
+
+func (dnsServer *KubeDockDns) answerQuestion(questions []dns.Question, networkSnapshot *Networks, sourceIp IPAddress,
+	fallback func() *dns.Msg) []dns.RR {
+	answer := make([]dns.RR, 0)
+
+	for _, question := range questions {
 		var rrs []dns.RR
 		if question.Qtype == dns.TypeA {
 			log.Printf("dns: A %s", question.Name)
@@ -109,17 +125,17 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 		}
 		if len(rrs) > 0 {
 			for _, rr := range rrs {
-				m.Answer = append(m.Answer, rr)
+				answer = append(answer, rr)
 			}
 			continue
 		}
-		log.Printf("dns: forwarding question %+v to upstream", question)
-		upstreamResponse := dnsServer.upstreamDnsServer.Resolve(r)
-		m.Answer = append(m.Answer, upstreamResponse.Answer...)
-	}
+		// when one question cannot be answered we delegate fully to the upstream server.
 
-	log.Printf("Writing response: %d", len(m.Answer))
-	w.WriteMsg(m)
+		log.Printf("dns: forwarding question %+v to upstream", question)
+		upstreamResponse := fallback()
+		return upstreamResponse.Answer
+	}
+	return answer
 }
 
 func resolveHostname(networks *Networks, question dns.Question, sourceIp IPAddress,
