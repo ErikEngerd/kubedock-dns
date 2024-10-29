@@ -141,6 +141,8 @@ func (s *NetworkTestSuite) runTest(networkTest *NetworkTest) {
 	} else {
 		s.Nil(err)
 	}
+	networks.Log()
+	s.checkNetworks(networks)
 	for _, lookup := range networkTest.lookups {
 		ips := networks.Lookup(IPAddress(lookup.sourceIp),
 			Hostname(lookup.host))
@@ -181,6 +183,11 @@ func (s *NetworkTestSuite) Test_SinglePod() {
 				sourceIp: "a",
 				host:     "db",
 				ips:      []string{"a"},
+			},
+			{
+				sourceIp: "unknownip",
+				host:     "db",
+				ips:      []string{},
 			},
 		},
 		reverseLookups: []ReverseLookup{
@@ -232,6 +239,16 @@ func (s *NetworkTestSuite) Test_TwoPodsSameNetwork() {
 				host:     "server",
 				ips:      []string{"b"},
 			},
+			{
+				sourceIp: "unknownip",
+				host:     "server",
+				ips:      []string{},
+			},
+			{
+				sourceIp: "unknownip",
+				host:     "db",
+				ips:      []string{},
+			},
 		},
 		reverseLookups: []ReverseLookup{
 			{
@@ -260,11 +277,160 @@ func (s *NetworkTestSuite) Test_TwoPodsSameNetwork() {
 }
 
 func (s *NetworkTestSuite) Test_TwoPodsDifferentNetwork() {
-
+	test := NetworkTest{
+		pods: []PodInfo{
+			{
+				ip:       "a",
+				hosts:    []string{"db"},
+				networks: []string{"test1"},
+				updated:  true,
+			},
+			{
+				ip:       "b",
+				hosts:    []string{"server"},
+				networks: []string{"test2"},
+				updated:  true,
+			},
+		},
+		errorsExpected: false,
+		lookups: []Lookup{
+			{
+				sourceIp: "a",
+				host:     "db",
+				ips:      []string{"a"},
+			},
+			{
+				sourceIp: "a",
+				host:     "server",
+				ips:      []string{},
+			},
+			{
+				sourceIp: "b",
+				host:     "db",
+				ips:      []string{},
+			},
+			{
+				sourceIp: "b",
+				host:     "server",
+				ips:      []string{"b"},
+			},
+			{
+				sourceIp: "unknownip",
+				host:     "server",
+				ips:      []string{},
+			},
+			{
+				sourceIp: "unknownip",
+				host:     "db",
+				ips:      []string{},
+			},
+		},
+		reverseLookups: []ReverseLookup{
+			{
+				sourceIp: "a",
+				ip:       "a",
+				hosts:    []string{"db"},
+			},
+			{
+				sourceIp: "a",
+				ip:       "b",
+				hosts:    []string{},
+			},
+			{
+				sourceIp: "b",
+				ip:       "a",
+				hosts:    []string{},
+			},
+			{
+				sourceIp: "b",
+				ip:       "b",
+				hosts:    []string{"server"},
+			},
+		},
+	}
+	s.runTest(&test)
 }
 
 func (s *NetworkTestSuite) Test_ThreePodsWhereSecondIsInvalid() {
-
+	test := NetworkTest{
+		pods: []PodInfo{
+			{
+				ip:       "a",
+				hosts:    []string{"db"},
+				networks: []string{"test1"},
+				updated:  true,
+			},
+			// duplicate host name in second pod
+			{
+				ip:       "a2",
+				hosts:    []string{"db"},
+				networks: []string{"test1"},
+				updated:  true,
+			},
+			{
+				ip:       "b",
+				hosts:    []string{"server"},
+				networks: []string{"test1"},
+				updated:  true,
+			},
+		},
+		errorsExpected: true,
+		lookups: []Lookup{
+			{
+				sourceIp: "a",
+				host:     "db",
+				ips:      []string{"a"},
+			},
+			{
+				sourceIp: "a",
+				host:     "server",
+				ips:      []string{"b"},
+			},
+			{
+				sourceIp: "b",
+				host:     "db",
+				ips:      []string{"a"},
+			},
+			{
+				sourceIp: "b",
+				host:     "server",
+				ips:      []string{"b"},
+			},
+			{
+				sourceIp: "unknownip",
+				host:     "server",
+				ips:      []string{},
+			},
+			{
+				sourceIp: "unknownip",
+				host:     "db",
+				ips:      []string{},
+			},
+		},
+		reverseLookups: []ReverseLookup{
+			{
+				sourceIp: "a",
+				ip:       "a",
+				hosts:    []string{"db"},
+			},
+			{
+				sourceIp: "a",
+				ip:       "b",
+				hosts:    []string{"server"},
+			},
+			{
+				sourceIp: "b",
+				ip:       "a",
+				hosts:    []string{"db"},
+			},
+			{
+				sourceIp: "b",
+				ip:       "b",
+				hosts:    []string{"server"},
+			},
+		},
+	}
+	s.runTest(&test)
 }
 
 func (s *NetworkTestSuite) Test_MultipleNetworksInOnePod() {

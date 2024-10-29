@@ -6,6 +6,7 @@ import (
 	"log"
 	"reflect"
 	"sync"
+	"wamblee.org/kubedock/dns/internal/support"
 )
 
 type IPAddress string
@@ -84,15 +85,16 @@ func (net *Networks) Add(pod *Pod) error {
 		if network == nil {
 			network = NewNetwork(networkId)
 		}
+		err := network.Add(pod)
+		if err != nil {
+			return err
+		}
+
 		if net.IpToNetworks[pod.IP] == nil {
 			net.IpToNetworks[pod.IP] = make(NetworkMap)
 		}
 		net.IpToNetworks[pod.IP][networkId] = network
 		net.NameToNetwork[networkId] = network
-		err := network.Add(pod)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -157,13 +159,15 @@ func (net *Networks) ReverseLookup(sourceIp IPAddress, ip IPAddress) []Hostname 
 type Pods struct {
 	mutex sync.RWMutex
 	// maps pod namespace/name to pod
-	Pods map[string]*Pod
+	// Using a linked map to preserver insertion order so we get more deterministic
+	// behavior in when building the network in the case of misconfiguration.
+	Pods *support.LinkedMap[string, *Pod]
 }
 
 func NewPods() *Pods {
 	return &Pods{
 		mutex: sync.RWMutex{},
-		Pods:  make(map[string]*Pod),
+		Pods:  support.NewLinkedMap[string, *Pod](),
 	}
 }
 
@@ -172,14 +176,14 @@ func (pods *Pods) AddOrUpdate(pod *Pod) bool {
 	defer pods.mutex.Unlock()
 
 	key := pod.Namespace + "/" + pod.Name
-	oldpod := pods.Pods[key]
+	oldpod, _ := pods.Pods.Get(key)
 	if oldpod != nil {
 		if reflect.DeepEqual(oldpod, pod) {
 			log.Printf("no change to pod definition %s/%s", pod.Namespace, pod.Name)
 			return false
 		}
 	}
-	pods.Pods[key] = pod
+	pods.Pods.Put(key, pod)
 	return true
 }
 
@@ -187,7 +191,7 @@ func (pods *Pods) Delete(namespace, name string) {
 	pods.mutex.Lock()
 	defer pods.mutex.Unlock()
 
-	delete(pods.Pods, namespace+"/"+name)
+	pods.Pods.Delete(namespace + "/" + name)
 }
 
 func (pods *Pods) Networks() (*Networks, error) {
@@ -196,9 +200,7 @@ func (pods *Pods) Networks() (*Networks, error) {
 
 	networks := NewNetworks()
 	errorList := make([]error, 0)
-	for _, pod := range pods.Pods {
-		// TODO robustness, should continue with other pods in case one pod fails
-		// and collect all errors
+	for pod := range pods.Pods.RangeValues() {
 		err := networks.Add(pod)
 		if err != nil {
 			errorList = append(errorList, err)
@@ -212,8 +214,8 @@ func (pods *Pods) Copy() *Pods {
 	pods.mutex.RLock()
 	defer pods.mutex.RUnlock()
 	res := NewPods()
-	for key, pod := range pods.Pods {
-		res.Pods[key] = pod
+	for entry := range pods.Pods.RangeEntries() {
+		res.Pods.Put(entry.Key, entry.Value)
 	}
 	return res
 }
