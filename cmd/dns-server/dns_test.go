@@ -4,7 +4,6 @@ import (
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/suite"
 	"log"
-	"net"
 	"testing"
 )
 
@@ -48,32 +47,55 @@ func (s *DNSTestSuite) Test_LookupLocal() {
 		s.Fail("Upstream DNS should not be called")
 		return nil
 	})
-	fallback := func() *dns.Msg {
-		s.Fail("Upstream DNS should not be called")
-		return nil
-	}
+
 	dnsServer := NewKubeDockDns(upstream, ":1053", "xyz.svc.cluster.local")
 	dnsServer.networks = networks
 
+	s.verifyLookup("db.", "10.0.0.10", "10.0.0.10", dnsServer, networks)
+	s.verifyLookup("db.xyz.svc.cluster.local.", "10.0.0.10", "10.0.0.10", dnsServer, networks)
+	s.verifyLookup("db.", "10.0.0.11", "100.101.102.103", dnsServer, networks)
+	s.verifyLookup("db.xyz.svc.cluster.local.", "10.0.0.11", "100.101.102.103", dnsServer, networks)
+
+	s.verifyReverseLookup("10.0.0.10", "10.0.0.10", "db.", dnsServer, networks)
+	s.verifyReverseLookup("10.0.0.11", "10.0.0.10", "fallback.", dnsServer, networks)
+}
+
+func (s *DNSTestSuite) verifyLookup(hostname string, sourceIp string, expectedIp string, dnsServer *KubeDockDns, networks *Networks) {
 	questions := []dns.Question{
 		{
-			Name:  "db.",
+			Name:  hostname,
 			Qtype: dns.TypeA,
 		},
 	}
-	rrs := dnsServer.answerQuestion(questions, networks, "10.0.0.10", fallback)
+	fallback := func() *dns.Msg {
+		var rr dns.RR = createAResponse("dummyquestion", IPAddress("100.101.102.103"))
+		m := &dns.Msg{
+			Answer: []dns.RR{rr},
+		}
+		return m
+	}
+	rrs := dnsServer.answerQuestion(questions, networks, IPAddress(sourceIp), fallback)
 	log.Printf("RRS %+v", rrs)
 	s.Equal(1, len(rrs))
-	s.Equal(net.ParseIP("10.0.0.10"), rrs[0].(*dns.A).A)
+	s.Equal(expectedIp, rrs[0].(*dns.A).A.String())
+}
 
-	questions = []dns.Question{
+func (s *DNSTestSuite) verifyReverseLookup(ip string, sourceIp string, expectedHost string, dnsServer *KubeDockDns, networks *Networks) {
+	questions := []dns.Question{
 		{
-			Name:  "db.xyz.svc.cluster.local.",
-			Qtype: dns.TypeA,
+			Name:  ip,
+			Qtype: dns.TypePTR,
 		},
 	}
-	rrs = dnsServer.answerQuestion(questions, networks, "10.0.0.10", fallback)
+	fallback := func() *dns.Msg {
+		var rr dns.RR = createPTRResponse("dummyquestion", "fallback")
+		m := &dns.Msg{
+			Answer: []dns.RR{rr},
+		}
+		return m
+	}
+	rrs := dnsServer.answerQuestion(questions, networks, IPAddress(sourceIp), fallback)
 	log.Printf("RRS %+v", rrs)
 	s.Equal(1, len(rrs))
-	s.Equal(net.ParseIP("10.0.0.10"), rrs[0].(*dns.A).A)
+	s.Equal(expectedHost, rrs[0].(*dns.PTR).Ptr)
 }

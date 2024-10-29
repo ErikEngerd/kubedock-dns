@@ -151,7 +151,7 @@ func resolveHostname(networks *Networks, question dns.Question, sourceIp IPAddre
 	rrs := make([]dns.RR, 0)
 	for _, ip := range ips {
 		log.Printf("dns: %s -> %s", question.Name, ip)
-		rr := createAResponse(question, ip)
+		rr := createAResponse(question.Name, ip)
 		rrs = append(rrs, rr)
 	}
 	return rrs
@@ -185,16 +185,16 @@ func resolveIP(networks *Networks, question dns.Question, sourceIp IPAddress) []
 
 	for _, host := range hosts {
 		log.Printf("dns: %s -> %s", question.Name, host)
-		rr := createPTRResponse(question, host)
+		rr := createPTRResponse(question.Name, host)
 		rrs = append(rrs, rr)
 	}
 	return rrs
 }
 
-func createAResponse(question dns.Question, ip IPAddress) *dns.A {
+func createAResponse(questionName string, ip IPAddress) *dns.A {
 	rr := &dns.A{
 		Hdr: dns.RR_Header{
-			Name:   question.Name,
+			Name:   questionName,
 			Rrtype: dns.TypeA,
 			Class:  dns.ClassINET,
 			Ttl:    300,
@@ -204,11 +204,11 @@ func createAResponse(question dns.Question, ip IPAddress) *dns.A {
 	return rr
 }
 
-func createPTRResponse(question dns.Question, host Hostname) dns.RR {
+func createPTRResponse(questionName string, host Hostname) dns.RR {
 	log.Printf("Creating ptr with %v", host)
 	rr := &dns.PTR{
 		Hdr: dns.RR_Header{
-			Name:   question.Name,
+			Name:   questionName,
 			Rrtype: dns.TypePTR,
 			Class:  dns.ClassINET,
 			Ttl:    300,
