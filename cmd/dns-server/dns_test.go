@@ -32,14 +32,20 @@ func (dnsFunc DnsFunc) Resolve(r *dns.Msg) *dns.Msg {
 
 func (s *DNSTestSuite) Test_LookupLocal() {
 	pods := NewPods()
-	pod := Pod{
+	pods.AddOrUpdate(&Pod{
 		IP:          "10.0.0.10",
 		Namespace:   "kubedock",
 		Name:        "pod-a",
 		HostAliases: []Hostname{"db"},
 		Networks:    []NetworkId{"test"},
-	}
-	pods.AddOrUpdate(&pod)
+	})
+	pods.AddOrUpdate(&Pod{
+		IP:          "10.0.0.12",
+		Namespace:   "kubedock",
+		Name:        "pod-b",
+		HostAliases: []Hostname{"service"},
+		Networks:    []NetworkId{"test"},
+	})
 	networks, err := pods.Networks()
 	s.Nil(err)
 
@@ -51,13 +57,22 @@ func (s *DNSTestSuite) Test_LookupLocal() {
 	dnsServer := NewKubeDockDns(upstream, ":1053", "xyz.svc.cluster.local")
 	dnsServer.networks = networks
 
+	// IP lookups
 	s.verifyLookup("db.", "10.0.0.10", "10.0.0.10", dnsServer, networks)
 	s.verifyLookup("db.xyz.svc.cluster.local.", "10.0.0.10", "10.0.0.10", dnsServer, networks)
+	s.verifyLookup("db.", "10.0.0.12", "10.0.0.10", dnsServer, networks)
+	s.verifyLookup("db.xyz.svc.cluster.local.", "10.0.0.12", "10.0.0.10", dnsServer, networks)
+
 	s.verifyLookup("db.", "10.0.0.11", "100.101.102.103", dnsServer, networks)
 	s.verifyLookup("db.xyz.svc.cluster.local.", "10.0.0.11", "100.101.102.103", dnsServer, networks)
 
+	// PTR lookups
+
 	s.verifyReverseLookup("10.0.0.10", "10.0.0.10", "db.", dnsServer, networks)
 	s.verifyReverseLookup("10.0.0.11", "10.0.0.10", "fallback.", dnsServer, networks)
+	s.verifyReverseLookup("10.0.0.10", "10.0.0.12", "db.", dnsServer, networks)
+	s.verifyReverseLookup("10.0.0.11", "10.0.0.12", "fallback.", dnsServer, networks)
+
 }
 
 func (s *DNSTestSuite) verifyLookup(hostname string, sourceIp string, expectedIp string, dnsServer *KubeDockDns, networks *Networks) {
