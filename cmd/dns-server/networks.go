@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"slices"
 	"sync"
 	"wamblee.org/kubedock/dns/internal/support"
 )
@@ -20,6 +21,16 @@ type Pod struct {
 	Name        string
 	HostAliases []Hostname
 	Networks    []NetworkId
+}
+
+func (pod *Pod) Copy() *Pod {
+	return &Pod{
+		IP:          pod.IP,
+		Namespace:   pod.Namespace,
+		Name:        pod.Name,
+		HostAliases: slices.Clone(pod.HostAliases),
+		Networks:    slices.Clone(pod.Networks),
+	}
 }
 
 type Network struct {
@@ -183,7 +194,7 @@ func (pods *Pods) AddOrUpdate(pod *Pod) bool {
 			return false
 		}
 	}
-	pods.Pods.Put(key, pod)
+	pods.Pods.Put(key, pod.Copy())
 	return true
 }
 

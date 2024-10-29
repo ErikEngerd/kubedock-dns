@@ -94,18 +94,6 @@ func (s *NetworkTestSuite) Test_EmptyNetwork() {
 	s.checkNetworks(networks)
 }
 
-func (s *NetworkTestSuite) assertIps(expected []IPAddress,
-	actual []IPAddress) {
-
-	expected2 := slices.Clone(expected)
-	actual2 := slices.Clone(actual)
-
-	slices.Sort(expected2)
-	slices.Sort(actual2)
-
-	s.Equal(expected, actual2)
-}
-
 type PodInfo struct {
 	ip       string
 	hosts    []string
@@ -165,6 +153,36 @@ func (s *NetworkTestSuite) runTest(networkTest *NetworkTest) {
 		slices.Sort(expectedHosts)
 		s.Equal(expectedHosts, hostsString)
 	}
+}
+
+func (s *NetworkTestSuite) Test_Pods() {
+	pod1 := s.createPod("a", []string{"db"}, []string{"test"})
+	pod2 := s.createPod("b", []string{"server"}, []string{"test"})
+
+	s.True(s.pods.AddOrUpdate(pod1))
+	s.False(s.pods.AddOrUpdate(pod1))
+	pod1a, ok := s.pods.Pods.Get(pod1.Namespace + "/" + pod1.Name)
+	s.True(ok)
+	s.Equal(pod1, pod1a)
+	s.Equal(1, s.pods.Pods.Len())
+
+	s.True(s.pods.AddOrUpdate(pod2))
+	s.False(s.pods.AddOrUpdate(pod2))
+	pod2.HostAliases = []Hostname{Hostname("abc")}
+	s.True(s.pods.AddOrUpdate(pod2))
+	pod2a, ok := s.pods.Pods.Get(pod2.Namespace + "/" + pod2.Name)
+	s.True(ok)
+	s.Equal(pod2, pod2a)
+	s.Equal(2, s.pods.Pods.Len())
+
+	s.pods.Delete(pod1.Namespace, pod1.Name)
+	s.Equal(1, s.pods.Pods.Len())
+	pod2b, _ := s.pods.Pods.Get(pod2.Namespace + "/" + pod2.Name)
+	s.Equal(pod2, pod2b)
+
+	s.pods.Delete(pod2.Namespace, pod2.Name)
+	s.Equal(0, s.pods.Pods.Len())
+
 }
 
 func (s *NetworkTestSuite) Test_SinglePod() {
