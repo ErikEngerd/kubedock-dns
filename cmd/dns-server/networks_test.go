@@ -561,6 +561,61 @@ func (s *NetworkTestSuite) Test_MultipleNetworksAreSeparate() {
 	s.runTest(&test)
 }
 
+// specialist scenario probably not encountered with testcontainers, but
+// still generally supported.
 func (s *NetworkTestSuite) Test_MultipleNetworksInOnePod() {
-
+	test := NetworkTest{
+		pods: []PodInfo{
+			{
+				ip:       "db1",
+				hosts:    []string{"db1", "db"},
+				networks: []string{"test1"},
+				updated:  true,
+			},
+			{
+				ip:       "db2",
+				hosts:    []string{"db2", "db"},
+				networks: []string{"test2"},
+				updated:  true,
+			},
+			// server can access services in test1 and test2 network
+			{
+				ip:       "server",
+				hosts:    []string{"server"},
+				networks: []string{"test1", "test2"},
+				updated:  true,
+			},
+		},
+		errorsExpected: false,
+		lookups: []Lookup{
+			{
+				sourceIp: "server",
+				host:     "db1",
+				ips:      []string{"db1"},
+			},
+			{
+				sourceIp: "server",
+				host:     "db2",
+				ips:      []string{"db2"},
+			},
+			{
+				sourceIp: "server",
+				host:     "db",
+				ips:      []string{"db1", "db2"},
+			},
+		},
+		reverseLookups: []ReverseLookup{
+			{
+				sourceIp: "server",
+				ip:       "db1",
+				hosts:    []string{"db1", "db"},
+			},
+			{
+				sourceIp: "server",
+				ip:       "db2",
+				hosts:    []string{"db2", "db"},
+			},
+		},
+	}
+	s.runTest(&test)
 }
