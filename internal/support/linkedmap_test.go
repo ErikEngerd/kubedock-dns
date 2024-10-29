@@ -32,30 +32,12 @@ func (s *LinkedMapTestSuite) contentCheck(m *LinkedMap[string, int],
 
 	s.True(len(keys) == len(values), "input error expected keys and values differ in length")
 
-	// keys
+	// Iterator
 	i := 0
-	for key := range m.RangeKeys() {
-		s.True(i < len(keys), "Too many elements in map")
+	for key, value := range m.Iter() {
+		s.True(i < len(values), "Too many elements in map")
 		s.Equal(keys[i], key)
-		i++
-	}
-	s.Equal(len(keys), i)
-
-	// values
-	i = 0
-	for value := range m.RangeValues() {
-		s.True(i < len(values), "Too many elements in map")
 		s.Equal(values[i], value)
-		i++
-	}
-	s.Equal(len(values), i)
-
-	// Entries
-	i = 0
-	for entry := range m.RangeEntries() {
-		s.True(i < len(values), "Too many elements in map")
-		s.Equal(keys[i], entry.Key)
-		s.Equal(values[i], entry.Value)
 		i++
 	}
 	s.Equal(len(values), i)

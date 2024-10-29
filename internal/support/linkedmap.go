@@ -2,6 +2,7 @@ package support
 
 import (
 	"fmt"
+	"iter"
 )
 
 // similar to linkes hash map in Java, a map that preserves insertion order
@@ -94,37 +95,14 @@ type Entry[K comparable, V any] struct {
 	Value V
 }
 
-func (m *LinkedMap[K, V]) RangeKeys() <-chan K {
-	defer m.check()
-	res := make(chan K, len(m.collection))
-	for node := m.first; node != nil; node = node.next {
-		res <- node.key
-	}
-	close(res)
-	return res
-}
-
-func (m *LinkedMap[K, V]) RangeValues() <-chan V {
-	defer m.check()
-	res := make(chan V, len(m.collection))
-	for node := m.first; node != nil; node = node.next {
-		res <- node.value
-	}
-	close(res)
-	return res
-}
-
-func (m *LinkedMap[K, V]) RangeEntries() <-chan Entry[K, V] {
-	defer m.check()
-	res := make(chan Entry[K, V], len(m.collection))
-	for node := m.first; node != nil; node = node.next {
-		res <- Entry[K, V]{
-			Key:   node.key,
-			Value: node.value,
+func (m *LinkedMap[K, V]) Iter() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for node := m.first; node != nil; node = node.next {
+			if !yield(node.key, node.value) {
+				return
+			}
 		}
 	}
-	close(res)
-	return res
 }
 
 func (m *LinkedMap[K, V]) check() {

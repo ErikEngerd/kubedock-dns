@@ -200,7 +200,7 @@ func (pods *Pods) Networks() (*Networks, error) {
 
 	networks := NewNetworks()
 	errorList := make([]error, 0)
-	for pod := range pods.Pods.RangeValues() {
+	for _, pod := range pods.Pods.Iter() {
 		err := networks.Add(pod)
 		if err != nil {
 			errorList = append(errorList, err)
@@ -214,8 +214,8 @@ func (pods *Pods) Copy() *Pods {
 	pods.mutex.RLock()
 	defer pods.mutex.RUnlock()
 	res := NewPods()
-	for entry := range pods.Pods.RangeEntries() {
-		res.Pods.Put(entry.Key, entry.Value)
+	for key, value := range pods.Pods.Iter() {
+		res.Pods.Put(key, value)
 	}
 	return res
 }
