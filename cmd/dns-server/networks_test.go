@@ -433,6 +433,134 @@ func (s *NetworkTestSuite) Test_ThreePodsWhereSecondIsInvalid() {
 	s.runTest(&test)
 }
 
+// the multiple tests with same container host names scenario
+func (s *NetworkTestSuite) Test_MultipleNetworksAreSeparate() {
+	test := NetworkTest{
+		pods: []PodInfo{
+			{
+				ip:       "a",
+				hosts:    []string{"db"},
+				networks: []string{"test1"},
+				updated:  true,
+			},
+			{
+				ip:       "b",
+				hosts:    []string{"server"},
+				networks: []string{"test1"},
+				updated:  true,
+			},
+			{
+				ip:       "a2",
+				hosts:    []string{"db"},
+				networks: []string{"test2"},
+				updated:  true,
+			},
+			{
+				ip:       "b2",
+				hosts:    []string{"server"},
+				networks: []string{"test2"},
+				updated:  true,
+			},
+		},
+		errorsExpected: false,
+		lookups: []Lookup{
+			{
+				sourceIp: "a",
+				host:     "db",
+				ips:      []string{"a"},
+			},
+			{
+				sourceIp: "a2",
+				host:     "db",
+				ips:      []string{"a2"},
+			},
+			{
+				sourceIp: "a",
+				host:     "server",
+				ips:      []string{"b"},
+			},
+			{
+				sourceIp: "a2",
+				host:     "server",
+				ips:      []string{"b2"},
+			},
+			{
+				sourceIp: "b",
+				host:     "db",
+				ips:      []string{"a"},
+			},
+			{
+				sourceIp: "b2",
+				host:     "db",
+				ips:      []string{"a2"},
+			},
+			{
+				sourceIp: "b",
+				host:     "server",
+				ips:      []string{"b"},
+			},
+			{
+				sourceIp: "b2",
+				host:     "server",
+				ips:      []string{"b2"},
+			},
+			{
+				sourceIp: "unknownip",
+				host:     "server",
+				ips:      []string{},
+			},
+			{
+				sourceIp: "unknownip",
+				host:     "db",
+				ips:      []string{},
+			},
+		},
+		reverseLookups: []ReverseLookup{
+			{
+				sourceIp: "a",
+				ip:       "a",
+				hosts:    []string{"db"},
+			},
+			{
+				sourceIp: "a2",
+				ip:       "a",
+				hosts:    []string{},
+			},
+			{
+				sourceIp: "a2",
+				ip:       "a2",
+				hosts:    []string{"db"},
+			},
+			{
+				sourceIp: "a",
+				ip:       "b",
+				hosts:    []string{"server"},
+			},
+			{
+				sourceIp: "a",
+				ip:       "b2",
+				hosts:    []string{},
+			},
+			{
+				sourceIp: "a2",
+				ip:       "b2",
+				hosts:    []string{"server"},
+			},
+			{
+				sourceIp: "b",
+				ip:       "a",
+				hosts:    []string{"db"},
+			},
+			{
+				sourceIp: "b",
+				ip:       "b",
+				hosts:    []string{"server"},
+			},
+		},
+	}
+	s.runTest(&test)
+}
+
 func (s *NetworkTestSuite) Test_MultipleNetworksInOnePod() {
 
 }
