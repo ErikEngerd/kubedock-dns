@@ -40,16 +40,19 @@ type KubeDockDns struct {
 	networks          *Networks
 	upstreamDnsServer DNSServer
 	port              string
+	searchDomain      string
 
 	overrideSourceIP IPAddress
 }
 
-func NewKubeDockDns(upstreamDnsServer DNSServer, port string) *KubeDockDns {
+func NewKubeDockDns(upstreamDnsServer DNSServer, port string, searchDomains string) *KubeDockDns {
 	server := KubeDockDns{
 		mutex:             sync.RWMutex{},
 		networks:          NewNetworks(),
 		upstreamDnsServer: upstreamDnsServer,
 		port:              port,
+		// final search suffix is the empty string for the case when we get
+		searchDomain: searchDomains,
 	}
 	return &server
 }
@@ -99,7 +102,7 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 		var rrs []dns.RR
 		if question.Qtype == dns.TypeA {
 			log.Printf("dns: A %s", question.Name)
-			rrs = resolveHostname(networkSnapshot, question, sourceIp)
+			rrs = resolveHostname(networkSnapshot, question, sourceIp, dnsServer.searchDomain)
 		} else if question.Qtype == dns.TypePTR {
 			log.Printf("dns: PTR %s", question.Name)
 			rrs = resolveIP(networkSnapshot, question, sourceIp)
@@ -119,11 +122,15 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 	w.WriteMsg(m)
 }
 
-func resolveHostname(networks *Networks, question dns.Question, sourceIp IPAddress) []dns.RR {
+func resolveHostname(networks *Networks, question dns.Question, sourceIp IPAddress,
+	searchDomain string) []dns.RR {
 	log.Printf("dns: A %s", question.Name)
-	ips := networks.Lookup(
-		sourceIp,
-		Hostname(question.Name[:len(question.Name)-1]))
+
+	hostname := question.Name[:len(question.Name)-1]
+	if strings.HasSuffix(hostname, "."+searchDomain) {
+		hostname = hostname[:len(hostname)-len(searchDomain)-1]
+	}
+	ips := networks.Lookup(sourceIp, Hostname(hostname))
 
 	rrs := make([]dns.RR, 0)
 	for _, ip := range ips {

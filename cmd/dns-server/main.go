@@ -19,7 +19,7 @@ func createDns() *KubeDockDns {
 	clientConfig := support.GetClientConfig()
 	upstreamDnsServer := NewExternalDNSServer(clientConfig.Servers[0] + ":53")
 	log.Printf("DNS server %s", upstreamDnsServer)
-	kubedocDns := NewKubeDockDns(upstreamDnsServer, ":1053")
+	kubedocDns := NewKubeDockDns(upstreamDnsServer, ":1053", clientConfig.Search[0])
 	return kubedocDns
 }
 
