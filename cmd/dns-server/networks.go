@@ -123,7 +123,7 @@ func (net *Networks) Lookup(sourceIp IPAddress, hostname Hostname) []IPAddress {
 	networks := net.IpToNetworks[sourceIp]
 	log.Printf("Networks: %+v", net.IpToNetworks)
 	if networks == nil {
-		return nil
+		return make([]IPAddress, 0)
 	}
 	log.Printf("No networks: %d", len(networks))
 	res := make([]IPAddress, 0)

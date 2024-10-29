@@ -74,8 +74,8 @@ func main() {
 	// pod administration
 	pods := NewPods()
 	dnsWatcherIntegration := &DnsWatcherIntegration{
-		dns:  dns,
 		pods: pods,
+		dns:  dns,
 	}
 
 	// Watching Pods
