@@ -27,21 +27,23 @@ func WatchPods(
 		fields.Everything(),
 	)
 
+	addOrUpdate := func(obj interface{}) {
+		k8spod := getPod(obj)
+		pod, err := getPodEssentials(k8spod, "")
+		if err == nil {
+			pods.AddOrUpdate(pod)
+		} else {
+			log.Printf("Ignoring pod %s/%s: %v", k8spod.Namespace, k8spod.Name, err)
+		}
+	}
+
 	options := cache.InformerOptions{
 		ListerWatcher: watchlist,
 		ObjectType:    &corev1.Pod{},
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				pod, err := getPodEssentials(getPod(obj), "")
-				if err == nil {
-					pods.AddOrUpdate(pod)
-				}
-			},
+			AddFunc: addOrUpdate,
 			UpdateFunc: func(_ any, obj any) {
-				pod, err := getPodEssentials(getPod(obj), "")
-				if err == nil {
-					pods.AddOrUpdate(pod)
-				}
+				addOrUpdate(obj)
 			},
 			DeleteFunc: func(obj any) {
 				pod := getPod(obj)

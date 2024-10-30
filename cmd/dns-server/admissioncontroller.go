@@ -82,11 +82,11 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 	pod, err := getPodEssentials(&k8spod, "0.0.0.0")
 	if err != nil {
 		log.Printf("Pod is misconfigured: %v", err)
-		return
+	} else {
+		newpods := mutator.pods.Copy()
+		newpods.AddOrUpdate(pod)
+		_, err = newpods.Networks()
 	}
-	newpods := mutator.pods.Copy()
-	newpods.AddOrUpdate(pod)
-	_, err = newpods.Networks()
 
 	var admissionResponse *admissionv1.AdmissionResponse
 	if err != nil {
