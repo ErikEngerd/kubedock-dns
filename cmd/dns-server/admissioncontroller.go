@@ -79,7 +79,11 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 
 	log.Printf("Adding dnsconfig and policy to pod %s/%s", k8spod.Namespace, k8spod.Name)
 
-	pod := getPodEssentials(&k8spod, "0.0.0.0")
+	pod, err := getPodEssentials(&k8spod, "0.0.0.0")
+	if err != nil {
+		log.Printf("Pod is misconfigured: %v", err)
+		return
+	}
 	newpods := mutator.pods.Copy()
 	newpods.AddOrUpdate(pod)
 	_, err = newpods.Networks()

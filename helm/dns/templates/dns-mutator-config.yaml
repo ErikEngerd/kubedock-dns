@@ -19,7 +19,8 @@ See https://masterminds.github.io/sprig/crypto.html for docs on the cryptographi
 
 {{/*
     { "namespace": namespace,
-      "cacert": decoded-cacert }
+      "cacert": decoded-cacert,
+      "label": label }
 */}}
 {{- define "dns-mutator-config" }}
 apiVersion: admissionregistration.k8s.io/v1
@@ -36,7 +37,7 @@ webhooks:
         kubernetes.io/metadata.name: {{ .namespace }}
     objectSelector:
       matchLabels:
-        kubedock-pod: "true"
+        {{ .label }}: "true"
     admissionReviewVersions:
       - v1
     sideEffects: NoneOnDryRun
@@ -65,7 +66,7 @@ webhooks:
 
   # Secret {{ $secretName }} is re-used
   {{ $cacert := index $secret.data "ca.crt" | b64dec }}
-  {{- template "dns-mutator-config" (dict "namespace" .Release.Namespace "cacert" $cacert) }}
+  {{- template "dns-mutator-config" (dict "namespace" .Release.Namespace "cacert" $cacert "label" .Values.label) }}
 
 {{- else }}
 
@@ -86,6 +87,6 @@ webhooks:
     tls.crt: "{{ $cert.Cert | b64enc }}"
     tls.key: "{{ $cert.Key | b64enc }}"
 ---
-  {{- template "dns-mutator-config" (dict "namespace" .Release.Namespace "cacert" $cacert) }}
+  {{- template "dns-mutator-config" (dict "namespace" .Release.Namespace "cacert" $cacert "label" .Values.label) }}
 
 {{- end }}

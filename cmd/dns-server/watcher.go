@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
@@ -31,15 +32,14 @@ func WatchPods(
 		ObjectType:    &corev1.Pod{},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Printf("Pod added")
-				pod := getPodEssentials(getPod(obj), "")
-				if pod != nil {
+				pod, err := getPodEssentials(getPod(obj), "")
+				if err == nil {
 					pods.AddOrUpdate(pod)
 				}
 			},
 			UpdateFunc: func(_ any, obj any) {
-				pod := getPodEssentials(getPod(obj), "")
-				if pod != nil {
+				pod, err := getPodEssentials(getPod(obj), "")
+				if err == nil {
 					pods.AddOrUpdate(pod)
 				}
 			},
@@ -66,11 +66,16 @@ func getPod(obj any) *corev1.Pod {
 	return k8spod
 }
 
-func getPodEssentials(k8spod *corev1.Pod, overrideIP string) *Pod {
+func getPodEssentials(k8spod *corev1.Pod, overrideIP string) (*Pod, error) {
 
-	log.Printf("Pod change %s/%s", k8spod.Namespace, k8spod.Name)
 	if overrideIP == "" && k8spod.Status.PodIP == "" {
-		return nil
+		return nil, fmt.Errorf("Pod does not have an IP: %s/%s",
+			k8spod.Namespace, k8spod.Name)
+	}
+
+	if k8spod.Labels[KUBEDOCK_LABEL_NAME] != "true" {
+		return nil, fmt.Errorf("Pod %s/%s does not have label %s set to 'true'",
+			k8spod.Namespace, k8spod.Name, KUBEDOCK_LABEL_NAME)
 	}
 
 	podIP := k8spod.Status.PodIP
@@ -92,9 +97,8 @@ func getPodEssentials(k8spod *corev1.Pod, overrideIP string) *Pod {
 	log.Printf("Pod %s/%s: hostaliases %v, networks %v",
 		k8spod.Namespace, k8spod.Name, hostaliases, networks)
 	if len(networks) == 0 || len(hostaliases) == 0 {
-		log.Printf("Pod %s/%s not configured in DNS",
+		return nil, fmt.Errorf("Pod %s/%s not configured in DNS",
 			k8spod.Namespace, k8spod.Name)
-		return nil
 	}
 
 	pod := Pod{
@@ -105,5 +109,5 @@ func getPodEssentials(k8spod *corev1.Pod, overrideIP string) *Pod {
 		Networks:    networks,
 	}
 
-	return &pod
+	return &pod, nil
 }

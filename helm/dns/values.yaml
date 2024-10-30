@@ -1,5 +1,5 @@
 
 
 
-dnsMutator:
-  replicas: 1
+replicas: 1
+label: kubedock-pod

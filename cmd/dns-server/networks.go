@@ -186,6 +186,7 @@ func (pods *Pods) AddOrUpdate(pod *Pod) bool {
 			return false
 		}
 	}
+	log.Printf("Processing pod networking config %s/%s", pod.Namespace, pod.Name)
 	pods.Pods.Put(key, pod.Copy())
 	return true
 }

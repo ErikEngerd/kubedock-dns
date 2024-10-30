@@ -2,17 +2,12 @@ package main
 
 import (
 	"context"
-	"flag"
+	"fmt"
 	"log"
 	"os"
 	"wamblee.org/kubedock/dns/internal/support"
-)
 
-var KUBEDOCK_HOSTALIAS_PREFIX = "kubedock.hostalias/"
-var KUBEDOCK_NETWORKID_PREFIX = "kubedock.network/"
-
-var (
-	ignoreNormal = flag.Bool("ignore-normal", false, "ignore events of type 'Normal' to reduce noise")
+	"github.com/spf13/cobra"
 )
 
 func createDns() *KubeDockDns {
@@ -52,8 +47,15 @@ func (integrator *DnsWatcherIntegration) updateDns() {
 	networks.Log()
 }
 
-func main() {
-	flag.Parse()
+func execute(cmd *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("No arguments expected, only options")
+	}
+	fmt.Printf("Host alias prefix: %s\n", KUBEDOCK_HOSTALIAS_PREFIX)
+	fmt.Printf("Network prefix:    %s\n", KUBEDOCK_NETWORKID_PREFIX)
+	fmt.Printf("Pod label:         %s\n", KUBEDOCK_LABEL_NAME)
+	fmt.Printf("CRT file:          %s\n", KUBEDOCK_CRT_FILE)
+	fmt.Printf("KEY file:          %s\n", KUBEDOCK_KEY_FILE)
 
 	ctx := context.Background()
 
@@ -84,7 +86,36 @@ func main() {
 	// Admission controller
 
 	if err := runAdmisstionController(ctx, pods, clientset, namespace, "dns-server",
-		"/etc/kubedock/pki/tls.crt", "/etc/kubedock/pki/tls.key"); err != nil {
-		log.Panicf("Could not start admission controler: %+v", err)
+		KUBEDOCK_CRT_FILE, KUBEDOCK_KEY_FILE); err != nil {
+		return fmt.Errorf("Could not start admission controler: %+v", err)
 	}
+	return nil
+}
+
+func main() {
+	cmd := &cobra.Command{
+		Use:   "kubedock-dns",
+		Short: "Run a DNS server and mutator for test containers",
+		Long: `
+Run a DNS server and mutator for test containers. 
+By labeling PODs with the host aliases and networks, 
+this provides separate networks of communicating pods
+in a single namespace. Thus emulating a typical docker
+setup with host aliases where some containers share a 
+network`,
+		RunE: execute,
+	}
+
+	cmd.PersistentFlags().StringVar(&KUBEDOCK_HOSTALIAS_PREFIX, "host-alias-prefix",
+		"kubedock.hostalias/", "annotation prefix for hosttnames. ")
+	cmd.PersistentFlags().StringVar(&KUBEDOCK_NETWORKID_PREFIX, "network-prefix",
+		"kubedock.network/", "annotation prefix for network names. ")
+	cmd.PersistentFlags().StringVar(&KUBEDOCK_LABEL_NAME, "label-name",
+		"kubedock-pod", "name of the label (with value 'true') to be applied to pods")
+	cmd.PersistentFlags().StringVar(&KUBEDOCK_CRT_FILE, "cert",
+		"/etc/kubedock/pki/tls.crt", "Certificate file")
+	cmd.PersistentFlags().StringVar(&KUBEDOCK_KEY_FILE, "key",
+		"/etc/kubedock/pki/tls.key", "Key file")
+
+	cmd.Execute()
 }
