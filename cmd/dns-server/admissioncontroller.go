@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"sync"
 	"wamblee.org/kubedock/dns/internal/support"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -42,7 +41,6 @@ type DnsMutator struct {
 	pods         *Pods
 	dnsServiceIP string
 	clientConfig *dns.ClientConfig
-	mutex        sync.Mutex
 }
 
 func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConfig) *DnsMutator {
@@ -61,12 +59,7 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 	// 1. errors in labeling or annotations by the user
 	// 2. editing of annotations after deployment to make them invalid.
 	//
-	// It is possible to solve this, but this requires the mutator to ebcome synchronous.
-	// One way to do that would be to use a mutex with TryLock() and if the lock cannot be
-	// obtained immediately, return an http TooManyRequests (429) status code so that
-	// kubernetes will retry. However, that solution lead to a lot of retries and delays, even
-	// in cases where the pods are configured correctly. The implementation here does a network
-	// check only as a best effort.
+	// The check of the network is just a best effort.
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
