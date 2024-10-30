@@ -105,8 +105,6 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 	answer := dnsServer.answerQuestion(question, networkSnapshot, sourceIp, fallback)
 
 	m.Answer = answer
-
-	log.Printf("Writing response: %d", len(m.Answer))
 	w.WriteMsg(m)
 }
 
@@ -131,7 +129,6 @@ func (dnsServer *KubeDockDns) answerQuestion(questions []dns.Question, networkSn
 		}
 		// when one question cannot be answered we delegate fully to the upstream server.
 
-		log.Printf("dns: forwarding question %+v to upstream", question)
 		upstreamResponse := fallback()
 		return upstreamResponse.Answer
 	}
