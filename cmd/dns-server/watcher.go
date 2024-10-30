@@ -15,10 +15,19 @@ type PodAdmin interface {
 	Delete(namespace, name string)
 }
 
+// TODO serialize updates to the administration using channels
+
 func WatchPods(
 	clientset *kubernetes.Clientset,
 	namespace string,
 	pods PodAdmin) {
+
+	serializer := make(chan func())
+	go func() {
+		for action := range serializer {
+			action()
+		}
+	}()
 
 	watchlist := cache.NewListWatchFromClient(
 		clientset.CoreV1().RESTClient(),
@@ -28,12 +37,14 @@ func WatchPods(
 	)
 
 	addOrUpdate := func(obj interface{}) {
-		k8spod := getPod(obj)
-		pod, err := getPodEssentials(k8spod, "")
-		if err == nil {
-			pods.AddOrUpdate(pod)
-		} else {
-			log.Printf("Ignoring pod %s/%s: %v", k8spod.Namespace, k8spod.Name, err)
+		serializer <- func() {
+			k8spod := getPod(obj)
+			pod, err := getPodEssentials(k8spod, "")
+			if err == nil {
+				pods.AddOrUpdate(pod)
+			} else {
+				log.Printf("Ignoring pod %s/%s: %v", k8spod.Namespace, k8spod.Name, err)
+			}
 		}
 	}
 
@@ -47,7 +58,9 @@ func WatchPods(
 			},
 			DeleteFunc: func(obj any) {
 				pod := getPod(obj)
-				pods.Delete(pod.Namespace, pod.Name)
+				serializer <- func() {
+					pods.Delete(pod.Namespace, pod.Name)
+				}
 			},
 		},
 		ResyncPeriod: 0,

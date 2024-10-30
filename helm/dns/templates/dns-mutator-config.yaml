@@ -57,6 +57,7 @@ webhooks:
           - "*"
         operations:
           - CREATE
+          - UPDATE
 {{- end }}
 
 {{- $secretName := "dns-mutator-cert" }}

@@ -18,7 +18,7 @@ bench: build
 
 build: vet
 	mkdir -p bin
-	go build -o bin ./cmd/...
+	go build -race -o bin ./cmd/...
 
 clean:
 	rm -rf bin

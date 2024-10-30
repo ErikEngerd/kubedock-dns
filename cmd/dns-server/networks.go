@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -52,8 +51,8 @@ func (net *Network) Add(pod *Pod) error {
 	for _, hostAlias := range pod.HostAliases {
 		existingPod := net.HostAliasToPod[hostAlias]
 		if existingPod != nil && !(existingPod.Namespace == pod.Namespace && existingPod.Name == pod.Name) {
-			return fmt.Errorf("Pod %+v has hostAlias %s in network %s which is already mapped to another pod %+v",
-				pod, hostAlias, net.Id, existingPod)
+			return fmt.Errorf("Pod %s/%s: hostAlias %s in network %s already mapped to %s/%s",
+				pod.Namespace, pod.Name, hostAlias, net.Id, existingPod.Namespace, existingPod.Name)
 		}
 	}
 
@@ -82,7 +81,24 @@ func NewNetworks() *Networks {
 	}
 }
 
-func (net *Networks) Add(pod *Pod) error {
+type PodError struct {
+	Pod *Pod
+	Err error
+}
+
+func (err *PodError) Error() string {
+	return fmt.Sprintf("[%s/%s]: %v",
+		err.Pod.Namespace, err.Pod.Name, err.Err)
+}
+
+func NewPodError(pod *Pod, err error) *PodError {
+	return &PodError{
+		Pod: pod,
+		Err: err,
+	}
+}
+
+func (net *Networks) Add(pod *Pod) *PodError {
 	if pod.IP == "" {
 		log.Panicf("Pod IP is not set: %+v", pod)
 	}
@@ -98,7 +114,7 @@ func (net *Networks) Add(pod *Pod) error {
 		}
 		err := network.Add(pod)
 		if err != nil {
-			return err
+			return NewPodError(pod, err)
 		}
 
 		if net.IpToNetworks[pod.IP] == nil {
@@ -198,19 +214,49 @@ func (pods *Pods) Delete(namespace, name string) {
 	pods.Pods.Delete(namespace + "/" + name)
 }
 
-func (pods *Pods) Networks() (*Networks, error) {
+type PodErrors struct {
+	Errors []*PodError
+}
+
+func NewPodErrors(errors []*PodError) *PodErrors {
+	if len(errors) == 0 {
+		return nil
+	}
+	return &PodErrors{
+		Errors: errors,
+	}
+}
+
+func (e *PodErrors) Error() string {
+	res := ""
+	for _, err := range e.Errors {
+		res = res + err.Error() + "\n"
+	}
+	return res
+}
+
+func (e *PodErrors) FirstError(pod *Pod) error {
+	for _, err := range e.Errors {
+		if err.Pod.Namespace == pod.Namespace && err.Pod.Name == pod.Name {
+			return err
+		}
+	}
+	return nil
+}
+
+func (pods *Pods) Networks() (*Networks, *PodErrors) {
 	pods.mutex.RLock()
 	defer pods.mutex.RUnlock()
 
 	networks := NewNetworks()
-	errorList := make([]error, 0)
+	errorList := make([]*PodError, 0)
 	for _, pod := range pods.Pods.Iter() {
 		err := networks.Add(pod)
 		if err != nil {
 			errorList = append(errorList, err)
 		}
 	}
-	err := errors.Join(errorList...)
+	err := NewPodErrors(errorList)
 	return networks, err
 }
 

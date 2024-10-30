@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"wamblee.org/kubedock/dns/internal/support"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -41,6 +42,7 @@ type DnsMutator struct {
 	pods         *Pods
 	dnsServiceIP string
 	clientConfig *dns.ClientConfig
+	mutex        sync.Mutex
 }
 
 func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConfig) *DnsMutator {
@@ -53,6 +55,19 @@ func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConf
 }
 
 func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) {
+
+	// NOTE: the mutator tries to gurantee a consisten network setup without conflicts, but
+	// becasue of concurrency this is not possible. Conflicts can occur in two ways:
+	// 1. errors in labeling or annotations by the user
+	// 2. editing of annotations after deployment to make them invalid.
+	//
+	// It is possible to solve this, but this requires the mutator to ebcome synchronous.
+	// One way to do that would be to use a mutex with TryLock() and if the lock cannot be
+	// obtained immediately, return an http TooManyRequests (429) status code so that
+	// kubernetes will retry. However, that solution lead to a lot of retries and delays, even
+	// in cases where the pods are configured correctly. The implementation here does a network
+	// check only as a best effort.
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
@@ -85,7 +100,19 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 	} else {
 		newpods := mutator.pods.Copy()
 		newpods.AddOrUpdate(pod)
-		_, err = newpods.Networks()
+		_, podErrors := newpods.Networks()
+		if podErrors != nil {
+			podError := podErrors.FirstError(pod)
+			if podError != nil {
+				// reject deployment because the specific pod is giving an error,
+				// here we ignore errors from other pods.
+				// In this design, only pods with valid network config can be deployed,
+				// so errors in other pods should never occur. However, metadata of pods
+				// can be changed in running pods, causing errors there. We do not want errors
+				// in other pods to influence deployment of valid pods.
+				err = podError
+			}
+		}
 	}
 
 	var admissionResponse *admissionv1.AdmissionResponse
@@ -170,7 +197,7 @@ func (mutator *DnsMutator) rejectPod(admissionReview admissionv1.AdmissionReview
 		Allowed: false,
 		Result: &metav1.Status{
 			Status:  "Failure",
-			Message: fmt.Sprintf("Network error: %v", err),
+			Message: err.Error(),
 			Reason:  metav1.StatusReasonConflict,
 			Code:    http.StatusConflict,
 		},
