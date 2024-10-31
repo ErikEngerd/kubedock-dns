@@ -147,7 +147,7 @@ func (mutator *DnsMutator) validatePod(admissionReview admissionv1.AdmissionRevi
 		return networks, nil
 	}
 	podError := podErrors.FirstError(pod)
-	if podErrors == nil {
+	if podError == nil {
 		return networks, nil
 	}
 	// Because of concurrency, other pods can have been added concurrently
