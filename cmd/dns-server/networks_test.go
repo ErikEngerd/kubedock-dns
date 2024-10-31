@@ -158,9 +158,23 @@ func (s *NetworkTestSuite) runTest(networkTest *NetworkTest) {
 }
 
 func (s *NetworkTestSuite) Test_InvalidHostname() {
-	pod, err := s.createPod("a", []string{"-db"}, []string{"test"})
-	s.Nil(pod)
-	s.NotNil(err)
+
+	longname := ""
+	for _ = range 255 {
+		longname = longname + "x"
+	}
+
+	for _, host := range []string{"-db", " ab.de ", longname + "x"} {
+		pod, err := s.createPod("a", []string{host}, []string{"test"})
+		s.Nil(pod)
+		s.NotNil(err)
+	}
+
+	for _, host := range []string{"db.nl", "a.db.nl", "a-3.db.nl", longname} {
+		pod, err := s.createPod("a", []string{host}, []string{"test"})
+		s.NotNil(pod)
+		s.Nil(err)
+	}
 }
 
 func (s *NetworkTestSuite) Test_Pods() {
