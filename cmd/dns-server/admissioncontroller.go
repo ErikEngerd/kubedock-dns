@@ -142,14 +142,7 @@ func (mutator *DnsMutator) validatePod(admissionReview admissionv1.AdmissionRevi
 		}
 	}
 	mutator.pods.AddOrUpdate(pod)
-	networks, podErrors := mutator.pods.Networks()
-	if podErrors == nil {
-		return networks, nil
-	}
-	podError := podErrors.FirstError(pod)
-	if podError == nil {
-		return networks, nil
-	}
+
 	// Because of concurrency, other pods can have been added concurrently
 	// But the order of adding pods to the network is deterministic because
 	// of how LinkedMap works by adding all pods to the nwtwork in the same
@@ -161,6 +154,15 @@ func (mutator *DnsMutator) validatePod(admissionReview admissionv1.AdmissionRevi
 	// so errors in other pods should never occur. However, metadata of pods
 	// can be changed in running pods, causing errors there. We do not want errors
 	// in other pods to influence deployment of valid pods.
+	networks, podErrors := mutator.pods.Networks()
+	if podErrors == nil {
+		return networks, nil
+	}
+	podError := podErrors.FirstError(pod)
+	if podError == nil {
+		return networks, nil
+	}
+
 	mutator.pods.Delete(pod.Namespace, pod.Name)
 	return nil, podError
 }
