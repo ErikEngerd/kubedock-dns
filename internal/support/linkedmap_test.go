@@ -10,11 +10,11 @@ type LinkedMapTestSuite struct {
 }
 
 func (s *LinkedMapTestSuite) SetupSuite() {
-	checkStatus = true
+	linkedMapCheckStatus = true
 }
 
 func (s *LinkedMapTestSuite) TearDownSuite() {
-	checkStatus = false
+	linkedMapCheckStatus = false
 }
 
 func (s *LinkedMapTestSuite) SetupTest() {
@@ -102,7 +102,8 @@ func (s *LinkedMapTestSuite) Test_addSameElementAgain() {
 	m := s.createSimpleMap()
 
 	m.Put("b", 4)
-	s.contentCheck(m, []string{"a", "c", "b"}, []int{1, 3, 4})
+	// preserve original insertion order.
+	s.contentCheck(m, []string{"a", "b", "c"}, []int{1, 4, 3})
 }
 
 func (s *LinkedMapTestSuite) createSimpleMap() *LinkedMap[string, int] {
@@ -123,4 +124,14 @@ func (s *LinkedMapTestSuite) Test_manyElements() {
 	s.contentCheck(m,
 		[]string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"},
 		[]int{9990, 9991, 9992, 9993, 9994, 9995, 9996, 9997, 9998, 9999})
+}
+
+func (s *LinkedMapTestSuite) Test_AddAndUpdateSingleElement() {
+	m := NewLinkedMap[string, int]()
+	m.Put("a", 1)
+	m.Put("a", 2)
+	s.Equal(1, m.Len())
+	val, ok := m.Get("a")
+	s.True(ok)
+	s.Equal(2, val)
 }

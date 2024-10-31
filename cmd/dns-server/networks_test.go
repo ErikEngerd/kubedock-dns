@@ -219,6 +219,46 @@ func (s *NetworkTestSuite) Test_SinglePod() {
 	s.runTest(&test)
 }
 
+func (s *NetworkTestSuite) Test_SinglePodWithUnknownIP() {
+	test := NetworkTest{
+		pods: []PodInfo{
+			{
+				ip:       UNKNOWN_IP_PREFIX + "a",
+				hosts:    []string{"db"},
+				networks: []string{"test1"},
+				updated:  true,
+			},
+			{
+				ip:       "b",
+				hosts:    []string{"svc"},
+				networks: []string{"test1"},
+				updated:  true,
+			},
+		},
+		errorsExpected: false,
+		lookups: []Lookup{
+			{
+				sourceIp: UNKNOWN_IP_PREFIX + "a",
+				host:     "db",
+				ips:      []string{},
+			},
+		},
+		reverseLookups: []ReverseLookup{
+			{
+				sourceIp: UNKNOWN_IP_PREFIX + "a",
+				ip:       UNKNOWN_IP_PREFIX + "a",
+				hosts:    []string{},
+			},
+			{
+				sourceIp: "b",
+				ip:       UNKNOWN_IP_PREFIX + "a",
+				hosts:    []string{},
+			},
+		},
+	}
+	s.runTest(&test)
+}
+
 func (s *NetworkTestSuite) Test_TwoPodsSameNetwork() {
 	test := NetworkTest{
 		pods: []PodInfo{

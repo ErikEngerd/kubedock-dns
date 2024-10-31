@@ -41,7 +41,6 @@ func (integrator *DnsWatcherIntegration) updateDns() {
 	// the hwole network configuration ot freeze of be incomplete
 	if err != nil {
 		log.Printf("Errors occured creating network configuration '%v'", err)
-		return
 	}
 	integrator.dns.SetNetworks(networks)
 	networks.Log()

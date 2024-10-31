@@ -5,6 +5,7 @@ import (
 	"log"
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"wamblee.org/kubedock/dns/internal/support"
 )
@@ -14,12 +15,22 @@ type Hostname string
 type NetworkId string
 type PodName string
 
+// the mutating admission controller adds the pod with an IP
+// prefixed by this string. This way, the Lookup can recognize
+// that it is dealing with a pod for which the IP is not yet known
+// and ignore it.
+const UNKNOWN_IP_PREFIX = "unknownip:"
+
 type Pod struct {
 	IP          IPAddress
 	Namespace   string
 	Name        string
 	HostAliases []Hostname
 	Networks    []NetworkId
+}
+
+func (pod *Pod) Equal(otherPod *Pod) bool {
+	return reflect.DeepEqual(pod, otherPod)
 }
 
 func (pod *Pod) Copy() *Pod {
@@ -143,12 +154,15 @@ func (net *Networks) Log() {
 }
 
 func (net *Networks) Lookup(sourceIp IPAddress, hostname Hostname) []IPAddress {
+	res := make([]IPAddress, 0)
+	if strings.HasPrefix(string(sourceIp), UNKNOWN_IP_PREFIX) {
+		return res
+	}
 	log.Printf("Lookup source ip '%s' host '%s'", sourceIp, hostname)
 	networks := net.IpToNetworks[sourceIp]
 	if networks == nil {
 		return make([]IPAddress, 0)
 	}
-	res := make([]IPAddress, 0)
 	for _, network := range networks {
 		pod := network.HostAliasToPod[hostname]
 		if pod != nil {
@@ -159,6 +173,12 @@ func (net *Networks) Lookup(sourceIp IPAddress, hostname Hostname) []IPAddress {
 }
 
 func (net *Networks) ReverseLookup(sourceIp IPAddress, ip IPAddress) []Hostname {
+	if strings.HasPrefix(string(sourceIp), UNKNOWN_IP_PREFIX) {
+		return nil
+	}
+	if strings.HasPrefix(string(ip), UNKNOWN_IP_PREFIX) {
+		return nil
+	}
 	log.Printf("ReverseLookup: sourceIP %s IP %s", sourceIp, ip)
 	networks := net.IpToNetworks[sourceIp]
 	if networks == nil {
@@ -180,6 +200,19 @@ type Pods struct {
 	// maps pod namespace/name to pod
 	// Using a linked map to preserver insertion order so we get more deterministic
 	// behavior in when building the network in the case of misconfiguration.
+	//
+	// The linked map preserves the original insertion order of the keys.
+	// This behavior is important for the dns mutator since it adds pods
+	// in  a certain order and validates the network configuration in that order.
+	// If two pods A and B  would conflict, then adding A to the network followed
+	// by B would show a conflict in B, whereas adding B  followed by A would show a
+	// conflict in A. With this structure, the order of adding pods to the network will
+	// always be the same.
+	//
+	// The admission controller adds the pods first with a dummy IP, then it is updated
+	// with thr actual IP later. For this to give consistent results, the validation
+	// order must always be the same.
+
 	Pods *support.LinkedMap[string, *Pod]
 }
 
@@ -197,7 +230,7 @@ func (pods *Pods) AddOrUpdate(pod *Pod) bool {
 	key := pod.Namespace + "/" + pod.Name
 	oldpod, _ := pods.Pods.Get(key)
 	if oldpod != nil {
-		if reflect.DeepEqual(oldpod, pod) {
+		if pod.Equal(oldpod) {
 			log.Printf("no change to pod definition %s/%s", pod.Namespace, pod.Name)
 			return false
 		}
@@ -205,6 +238,11 @@ func (pods *Pods) AddOrUpdate(pod *Pod) bool {
 	log.Printf("Processing pod networking config %s/%s", pod.Namespace, pod.Name)
 	pods.Pods.Put(key, pod.Copy())
 	return true
+}
+
+func (pods *Pods) Get(namespace, name string) *Pod {
+	pod, _ := pods.Pods.Get(namespace + "/" + name)
+	return pod
 }
 
 func (pods *Pods) Delete(namespace, name string) {

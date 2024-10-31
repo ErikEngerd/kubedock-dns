@@ -7,10 +7,12 @@ import (
 	"io"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 	"wamblee.org/kubedock/dns/internal/support"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -53,14 +55,6 @@ func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConf
 }
 
 func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) {
-
-	// NOTE: the mutator tries to gurantee a consisten network setup without conflicts, but
-	// becasue of concurrency this is not possible. Conflicts can occur in two ways:
-	// 1. errors in labeling or annotations by the user
-	// 2. editing of annotations after deployment to make them invalid.
-	//
-	// The check of the network is just a best effort.
-
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
@@ -87,26 +81,7 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 
 	log.Printf("Adding dnsconfig and policy to pod %s/%s", k8spod.Namespace, k8spod.Name)
 
-	pod, err := getPodEssentials(&k8spod, "0.0.0.0")
-	if err != nil {
-		log.Printf("Pod is misconfigured: %v", err)
-	} else {
-		newpods := mutator.pods.Copy()
-		newpods.AddOrUpdate(pod)
-		_, podErrors := newpods.Networks()
-		if podErrors != nil {
-			podError := podErrors.FirstError(pod)
-			if podError != nil {
-				// reject deployment because the specific pod is giving an error,
-				// here we ignore errors from other pods.
-				// In this design, only pods with valid network config can be deployed,
-				// so errors in other pods should never occur. However, metadata of pods
-				// can be changed in running pods, causing errors there. We do not want errors
-				// in other pods to influence deployment of valid pods.
-				err = podError
-			}
-		}
-	}
+	err = mutator.validateK8sPod(k8spod, err, admissionReview)
 
 	var admissionResponse *admissionv1.AdmissionResponse
 	if err != nil {
@@ -134,6 +109,64 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resp)
+}
+
+func (mutator *DnsMutator) validateK8sPod(k8spod corev1.Pod, err error, admissionReview admissionv1.AdmissionReview) error {
+	// add pod with an unknown IP indicator but with a unique IP. The IP will be updated
+	// later when the IP becomes known during deployment.
+	podIpOverride := k8spod.Status.PodIP
+	if podIpOverride == "" {
+		podIpOverride = UNKNOWN_IP_PREFIX + strconv.Itoa(time.Now().Nanosecond()) +
+			strconv.Itoa(rand.Int())
+	}
+	pod, err := getPodEssentials(&k8spod, podIpOverride)
+	if err != nil {
+		log.Printf("Pod is misconfigured: %v", err)
+	} else {
+		var networks *Networks
+		networks, err = mutator.validatePod(admissionReview, pod)
+		if err == nil {
+			log.Printf("Pod %s/%s was valid", pod.Namespace, pod.Name)
+			networks.Log()
+		}
+	}
+	return err
+}
+
+func (mutator *DnsMutator) validatePod(admissionReview admissionv1.AdmissionReview, pod *Pod) (*Networks, error) {
+	if admissionReview.Request.Operation == admissionv1.Update {
+		oldpod := mutator.pods.Get(pod.Namespace, pod.Name)
+		if !oldpod.Equal(pod) {
+			err := fmt.Errorf("%s/%s: cannot change network configuration after creation",
+				pod.Namespace, pod.Name)
+			return nil, err
+		}
+	}
+	mutator.pods.AddOrUpdate(pod)
+	var err error
+	networks, podErrors := mutator.pods.Networks()
+	if podErrors != nil {
+		podError := podErrors.FirstError(pod)
+		if podError != nil {
+			// Because of concurrency, other pods can have been added concurrently
+			// But the order of adding pods to the network is deterministic because
+			// of how LinkedMap works by adding all pods to the nwtwork in the same
+			// order one by one.
+			//
+			// reject deployment because the specific pod is giving an error,
+			// here we ignore errors from other pods.
+			// In this design, only pods with valid network config can be deployed,
+			// so errors in other pods should never occur. However, metadata of pods
+			// can be changed in running pods, causing errors there. We do not want errors
+			// in other pods to influence deployment of valid pods.
+			err = podError
+		}
+	}
+	if err != nil {
+		mutator.pods.Delete(pod.Namespace, pod.Name)
+		return nil, err
+	}
+	return networks, err
 }
 
 func (mutator *DnsMutator) addDnsConfiguration(w http.ResponseWriter, admissionReview admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {

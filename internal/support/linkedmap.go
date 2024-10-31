@@ -6,8 +6,15 @@ import (
 )
 
 // similar to linkes hash map in Java, a map that preserves insertion order
+// This variant preserves the original insertion order. That is, with
+// map.put("a", 1)
+// map.put("b", 3)
+// map.put("a", 2)
+//
+// The order when iterating will still be "a", "b".
+//
 
-var checkStatus = false
+var linkedMapCheckStatus = false
 
 type Node[K comparable, V any] struct {
 	key   K
@@ -50,7 +57,13 @@ func (m *LinkedMap[K, V]) Put(key K, value V) {
 		m.collection[key] = m.first
 		return
 	}
-	m.Delete(key)
+	// replace element with same key if present
+	existingNode := m.collection[key]
+	if existingNode != nil {
+		existingNode.value = value
+		return
+	}
+	// not present, add it at the end.
 	m.last.next = newNode
 	m.last = newNode
 	m.collection[key] = newNode
@@ -106,7 +119,7 @@ func (m *LinkedMap[K, V]) Iter() iter.Seq2[K, V] {
 }
 
 func (m *LinkedMap[K, V]) check() {
-	if !checkStatus {
+	if !linkedMapCheckStatus {
 		return
 	}
 	assert := func(c bool, text string) {
