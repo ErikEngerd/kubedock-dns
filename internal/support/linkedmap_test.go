@@ -2,6 +2,7 @@ package support
 
 import (
 	"github.com/stretchr/testify/suite"
+	"math/rand"
 	"testing"
 )
 
@@ -134,4 +135,35 @@ func (s *LinkedMapTestSuite) Test_AddAndUpdateSingleElement() {
 	val, ok := m.Get("a")
 	s.True(ok)
 	s.Equal(2, val)
+}
+
+func (s *LinkedMapTestSuite) Test_Random() {
+	m := NewLinkedMap[string, int]()
+	c := make(map[string]int)
+	n := 10000
+	keys := "abcdefghijklm"
+	for _ = range n {
+		i := rand.Int() % len(keys)
+		j := rand.Int() % len(keys)
+		key := keys[i:i+1] + keys[j:j+1]
+		val := rand.Int()
+		operation := rand.Int() % 2
+		switch operation {
+		case 0:
+			m.Put(key, val)
+			c[key] = val
+		case 1:
+			m.Delete(key)
+			delete(c, key)
+		}
+		s.Equal(m.Len(), len(c))
+		for k, v := range c {
+			val, ok := m.Get(k)
+			s.True(ok)
+			s.Equal(v, val)
+			val2, ok2 := c[k]
+			s.True(ok2)
+			s.Equal(val2, val)
+		}
+	}
 }
