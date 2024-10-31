@@ -29,6 +29,33 @@ type Pod struct {
 	Networks    []NetworkId
 }
 
+func NewPod(ip IPAddress, namespace string, name string, hostAliases []Hostname,
+	networks []NetworkId) (*Pod, error) {
+
+	hostAliases = slices.Clone(hostAliases)
+	slices.Sort(hostAliases)
+	hostAliases = slices.Compact(hostAliases)
+
+	networks = slices.Clone(networks)
+	slices.Sort(networks)
+	networks = slices.Compact(networks)
+
+	for _, host := range hostAliases {
+		if !support.IsValidHostname(string(host)) {
+			return nil, fmt.Errorf("%s/%s: Invalid hostanem '%s'",
+				namespace, name, host)
+		}
+	}
+
+	return &Pod{
+		IP:          ip,
+		Namespace:   namespace,
+		Name:        name,
+		HostAliases: hostAliases,
+		Networks:    networks,
+	}, nil
+}
+
 func (pod *Pod) Equal(otherPod *Pod) bool {
 	return reflect.DeepEqual(pod, otherPod)
 }

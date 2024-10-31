@@ -30,22 +30,24 @@ func (dnsFunc DnsFunc) Resolve(r *dns.Msg) *dns.Msg {
 	return dnsFunc(r)
 }
 
+func (s *DNSTestSuite) newPod(ip IPAddress, namespace string, name string, hostAliases []Hostname,
+	networks []NetworkId) *Pod {
+	pod, err := NewPod(ip, namespace, name, hostAliases, networks)
+	s.Nil(err)
+	s.NotNil(pod)
+	return pod
+}
+
 func (s *DNSTestSuite) Test_LookupLocal() {
 	pods := NewPods()
-	pods.AddOrUpdate(&Pod{
-		IP:          "10.0.0.10",
-		Namespace:   "kubedock",
-		Name:        "pod-a",
-		HostAliases: []Hostname{"db"},
-		Networks:    []NetworkId{"test"},
-	})
-	pods.AddOrUpdate(&Pod{
-		IP:          "10.0.0.12",
-		Namespace:   "kubedock",
-		Name:        "pod-b",
-		HostAliases: []Hostname{"service"},
-		Networks:    []NetworkId{"test"},
-	})
+	pods.AddOrUpdate(s.newPod(
+		"10.0.0.10", "kubedock", "pod-a", []Hostname{"db"},
+		[]NetworkId{"test"},
+	))
+	pods.AddOrUpdate(s.newPod(
+		"10.0.0.12", "kubedock", "pod-b", []Hostname{"service"},
+		[]NetworkId{"test"},
+	))
 	networks, err := pods.Networks()
 	s.Nil(err)
 

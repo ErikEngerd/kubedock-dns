@@ -116,13 +116,13 @@ func getPodEssentials(k8spod *corev1.Pod, overrideIP string) (*Pod, error) {
 			k8spod.Namespace, k8spod.Name)
 	}
 
-	pod := Pod{
-		IP:          IPAddress(podIP),
-		Namespace:   k8spod.Namespace,
-		Name:        k8spod.Name,
-		HostAliases: hostaliases,
-		Networks:    networks,
-	}
+	pod, err := NewPod(
+		IPAddress(podIP),
+		k8spod.Namespace,
+		k8spod.Name,
+		hostaliases,
+		networks,
+	)
 
-	return &pod, nil
+	return pod, err
 }

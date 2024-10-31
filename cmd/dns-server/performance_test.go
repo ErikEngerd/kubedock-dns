@@ -17,14 +17,15 @@ func BenchmarkCreateNetworks(b *testing.B) {
 	for i := range nTests {
 		for j := range nPodsPerTest {
 			ipod := i*nPodsPerTest + j
-			pod := Pod{
-				IP:          IPAddress(strconv.Itoa(ipod)),
-				Namespace:   "kubedock",
-				Name:        fmt.Sprintf("pod%d", ipod),
-				HostAliases: []Hostname{Hostname(fmt.Sprintf("host%d", j))},
-				Networks:    []NetworkId{NetworkId(fmt.Sprintf("network%d", i))},
-			}
-			pods.AddOrUpdate(&pod)
+			pod, err := NewPod(
+				IPAddress(strconv.Itoa(ipod)),
+				"kubedock",
+				fmt.Sprintf("pod%d", ipod),
+				[]Hostname{Hostname(fmt.Sprintf("host%d", j))},
+				[]NetworkId{NetworkId(fmt.Sprintf("network%d", i))},
+			)
+			assert.Nil(b, err)
+			pods.AddOrUpdate(pod)
 		}
 	}
 
