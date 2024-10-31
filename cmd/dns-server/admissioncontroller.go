@@ -81,7 +81,7 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 
 	log.Printf("Adding dnsconfig and policy to pod %s/%s", k8spod.Namespace, k8spod.Name)
 
-	err = mutator.validateK8sPod(k8spod, err, admissionReview)
+	err = mutator.validateK8sPod(k8spod, admissionReview)
 
 	var admissionResponse *admissionv1.AdmissionResponse
 	if err != nil {
@@ -111,7 +111,7 @@ func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) 
 	w.Write(resp)
 }
 
-func (mutator *DnsMutator) validateK8sPod(k8spod corev1.Pod, err error, admissionReview admissionv1.AdmissionReview) error {
+func (mutator *DnsMutator) validateK8sPod(k8spod corev1.Pod, admissionReview admissionv1.AdmissionReview) error {
 	// add pod with an unknown IP indicator but with a unique IP. The IP will be updated
 	// later when the IP becomes known during deployment.
 	podIpOverride := k8spod.Status.PodIP
@@ -121,52 +121,48 @@ func (mutator *DnsMutator) validateK8sPod(k8spod corev1.Pod, err error, admissio
 	}
 	pod, err := getPodEssentials(&k8spod, podIpOverride)
 	if err != nil {
-		log.Printf("Pod is misconfigured: %v", err)
-	} else {
-		var networks *Networks
-		networks, err = mutator.validatePod(admissionReview, pod)
-		if err == nil {
-			log.Printf("Pod %s/%s was valid", pod.Namespace, pod.Name)
-			networks.Log()
-		}
+		return err
 	}
-	return err
+	var networks *Networks
+	networks, err = mutator.validatePod(admissionReview, pod)
+	if err != nil {
+		return err
+	}
+	log.Printf("Pod %s/%s was valid", pod.Namespace, pod.Name)
+	networks.Log()
+	return nil
 }
 
 func (mutator *DnsMutator) validatePod(admissionReview admissionv1.AdmissionReview, pod *Pod) (*Networks, error) {
 	if admissionReview.Request.Operation == admissionv1.Update {
 		oldpod := mutator.pods.Get(pod.Namespace, pod.Name)
 		if !oldpod.Equal(pod) {
-			err := fmt.Errorf("%s/%s: cannot change network configuration after creation",
+			return nil, fmt.Errorf("%s/%s: cannot change network configuration after creation",
 				pod.Namespace, pod.Name)
-			return nil, err
 		}
 	}
 	mutator.pods.AddOrUpdate(pod)
-	var err error
 	networks, podErrors := mutator.pods.Networks()
-	if podErrors != nil {
-		podError := podErrors.FirstError(pod)
-		if podError != nil {
-			// Because of concurrency, other pods can have been added concurrently
-			// But the order of adding pods to the network is deterministic because
-			// of how LinkedMap works by adding all pods to the nwtwork in the same
-			// order one by one.
-			//
-			// reject deployment because the specific pod is giving an error,
-			// here we ignore errors from other pods.
-			// In this design, only pods with valid network config can be deployed,
-			// so errors in other pods should never occur. However, metadata of pods
-			// can be changed in running pods, causing errors there. We do not want errors
-			// in other pods to influence deployment of valid pods.
-			err = podError
-		}
+	if podErrors == nil {
+		return networks, nil
 	}
-	if err != nil {
-		mutator.pods.Delete(pod.Namespace, pod.Name)
-		return nil, err
+	podError := podErrors.FirstError(pod)
+	if podErrors == nil {
+		return networks, nil
 	}
-	return networks, err
+	// Because of concurrency, other pods can have been added concurrently
+	// But the order of adding pods to the network is deterministic because
+	// of how LinkedMap works by adding all pods to the nwtwork in the same
+	// order one by one.
+	//
+	// reject deployment because the specific pod is giving an error,
+	// here we ignore errors from other pods.
+	// In this design, only pods with valid network config can be deployed,
+	// so errors in other pods should never occur. However, metadata of pods
+	// can be changed in running pods, causing errors there. We do not want errors
+	// in other pods to influence deployment of valid pods.
+	mutator.pods.Delete(pod.Namespace, pod.Name)
+	return nil, podError
 }
 
 func (mutator *DnsMutator) addDnsConfiguration(w http.ResponseWriter, admissionReview admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {

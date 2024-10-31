@@ -5,35 +5,36 @@ import (
 	"iter"
 )
 
-// similar to linkes hash map in Java, a map that preserves insertion order
+// similar to linked hash map in Java, a map that preserves insertion order
 // This variant preserves the original insertion order. That is, with
-// map.put("a", 1)
-// map.put("b", 3)
-// map.put("a", 2)
 //
-// The order when iterating will still be "a", "b".
+// map.Put("a", 1)
+// map.Put("b", 3)
+// map.Put("a", 2)
+//
+// The order when iterating will still be "a", "b" and not "b", "a".
 //
 
 var linkedMapCheckStatus = false
 
-type Node[K comparable, V any] struct {
+type node[K comparable, V any] struct {
 	key   K
 	value V
-	prev  *Node[K, V]
-	next  *Node[K, V]
+	prev  *node[K, V]
+	next  *node[K, V]
 }
 
 type LinkedMap[K comparable, V any] struct {
-	first      *Node[K, V]
-	last       *Node[K, V]
-	collection map[K]*Node[K, V]
+	first      *node[K, V]
+	last       *node[K, V]
+	collection map[K]*node[K, V]
 }
 
 func NewLinkedMap[K comparable, V any]() *LinkedMap[K, V] {
 	res := LinkedMap[K, V]{
 		first:      nil,
 		last:       nil,
-		collection: make(map[K]*Node[K, V]),
+		collection: make(map[K]*node[K, V]),
 	}
 	res.check()
 	return &res
@@ -45,7 +46,7 @@ func (m *LinkedMap[K, V]) Len() int {
 
 func (m *LinkedMap[K, V]) Put(key K, value V) {
 	defer m.check()
-	newNode := &Node[K, V]{
+	newNode := &node[K, V]{
 		key:   key,
 		value: value,
 		prev:  m.last,

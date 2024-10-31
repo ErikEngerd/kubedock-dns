@@ -84,12 +84,12 @@ func getPod(obj any) *corev1.Pod {
 func getPodEssentials(k8spod *corev1.Pod, overrideIP string) (*Pod, error) {
 
 	if overrideIP == "" && k8spod.Status.PodIP == "" {
-		return nil, fmt.Errorf("Pod does not have an IP: %s/%s",
+		return nil, fmt.Errorf("%s/%s: Pod does not have an IP",
 			k8spod.Namespace, k8spod.Name)
 	}
 
 	if k8spod.Labels[KUBEDOCK_LABEL_NAME] != "true" {
-		return nil, fmt.Errorf("Pod %s/%s does not have label %s set to 'true'",
+		return nil, fmt.Errorf("%s/%s: Pod does not have label %s set to 'true'",
 			k8spod.Namespace, k8spod.Name, KUBEDOCK_LABEL_NAME)
 	}
 
@@ -112,7 +112,7 @@ func getPodEssentials(k8spod *corev1.Pod, overrideIP string) (*Pod, error) {
 	log.Printf("Pod %s/%s: hostaliases %v, networks %v",
 		k8spod.Namespace, k8spod.Name, hostaliases, networks)
 	if len(networks) == 0 || len(hostaliases) == 0 {
-		return nil, fmt.Errorf("Pod %s/%s not configured in DNS",
+		return nil, fmt.Errorf("%s/%s: Pod not configured in DNS",
 			k8spod.Namespace, k8spod.Name)
 	}
 
