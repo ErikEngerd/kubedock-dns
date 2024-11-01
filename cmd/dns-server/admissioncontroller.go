@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"github.com/miekg/dns"
 	"gomodules.xyz/jsonpatch/v2"
-	"io"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"strconv"
 	"time"
 	"wamblee.org/kubedock/dns/internal/support"
@@ -21,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"encoding/json"
-	"k8s.io/apimachinery/pkg/runtime"
+	controllerlog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -41,7 +40,7 @@ type DnsMutator struct {
 	clientConfig *dns.ClientConfig
 }
 
-func NewDnsMutator(decoder runtime.Decoder, pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConfig) *DnsMutator {
+func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConfig) *DnsMutator {
 	mutator := DnsMutator{
 		pods:         pods,
 		dnsServiceIP: dnsServiceIP,
@@ -71,59 +70,6 @@ func (mutator *DnsMutator) Handle(ctx context.Context, request admission.Request
 		return mutator.rejectPod(request, err)
 	}
 	return mutator.addDnsConfiguration(request)
-}
-
-func (mutator *DnsMutator) handleMutate(w http.ResponseWriter, r *http.Request) {
-	log.Println("Inside mutator")
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Failed to read request body", http.StatusBadRequest)
-		return
-	}
-	log.Println("Read body")
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		http.Error(w, "Invalid Content-Type", http.StatusUnsupportedMediaType)
-		return
-	}
-
-	log.Println("verified content type")
-
-	var admissionReview admissionv1.AdmissionReview
-	admissionRequest := admission.Request{}
-	admissionReview.Request = &admissionRequest.AdmissionRequest
-	if err := json.Unmarshal(body, &admissionReview); err != nil {
-		log.Printf("Error unmarshalling json: %v\n%s", err, string(body))
-		http.Error(w, fmt.Sprintf("Could not decode body: %v", err), http.StatusBadRequest)
-		return
-	}
-
-	log.Println("After parsing request")
-
-	admissionResponse := mutator.Handle(context.Background(), admissionRequest)
-	if err := admissionResponse.Complete(admissionRequest); err != nil {
-		log.Printf("unable to encode response: %v", err)
-		admissionResponse = mutator.errored(http.StatusInternalServerError, err)
-		// Note: We explicitly have to set the response UID. Usually that is done via resp.Complete.
-		admissionResponse.UID = admissionRequest.UID
-	}
-
-	responseAdmissionReview := admissionv1.AdmissionReview{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "admission.k8s.io/v1",
-			Kind:       "AdmissionReview",
-		},
-		Response: &admissionResponse.AdmissionResponse,
-	}
-
-	resp, err := json.Marshal(responseAdmissionReview)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not marshal response: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(resp)
 }
 
 func (mutator *DnsMutator) validateK8sPod(k8spod corev1.Pod, operation admissionv1.Operation) error {
@@ -251,16 +197,6 @@ func runAdmisstionController(ctx context.Context,
 	crtFile string,
 	keyFile string) error {
 
-	scheme := runtime.NewScheme()
-	//if err := corev1.AddToScheme(scheme); err != nil {
-	//	log.Printf("unable to add corev1 schema: %v", err)
-	//	os.Exit(1)
-	//}
-	//decoder := admission.NewDecoder(scheme)
-
-	codecs := serializer.NewCodecFactory(scheme)
-	decoder := codecs.UniversalDeserializer()
-
 	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, dnsServiceName, v1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("Could not get dns service IP for service '%s'", dnsServiceName)
@@ -268,9 +204,19 @@ func runAdmisstionController(ctx context.Context,
 	dnsServiceIP := svc.Spec.ClusterIP
 	log.Printf("Service IP is %s", dnsServiceIP)
 
-	dnsMutator := NewDnsMutator(decoder, pods, dnsServiceIP, support.GetClientConfig())
+	dnsMutator := NewDnsMutator(pods, dnsServiceIP, support.GetClientConfig())
+	controllerlog.SetLogger(zap.New())
 
-	http.HandleFunc("/mutate/pods", dnsMutator.handleMutate)
+	webhook := admission.Webhook{
+		Handler: dnsMutator,
+	}
+
+	dnsMutatorHandler, err := admission.StandaloneWebhook(&webhook, admission.StandaloneOptions{})
+	if err != nil {
+		return fmt.Errorf("Could not create mutator: %v", err)
+	}
+
+	http.HandleFunc("/mutate/pods", dnsMutatorHandler.ServeHTTP)
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
