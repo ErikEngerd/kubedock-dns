@@ -1,5 +1,6 @@
 
 
 
+# TODO make default 2
 replicas: 1
 label: kubedock-pod
