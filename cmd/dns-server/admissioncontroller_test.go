@@ -196,5 +196,5 @@ func (s *MutatorTestSuite) Test_SingleHostAndNetwork() {
 	pod := s.pods.Get("kubedock", "db")
 	s.NotNil(pod)
 	s.Equal([]Hostname{"db"}, pod.HostAliases)
-
+	s.Equal([]NetworkId{"test"}, pod.Networks)
 }
