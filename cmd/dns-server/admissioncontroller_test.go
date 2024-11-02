@@ -198,3 +198,44 @@ func (s *MutatorTestSuite) Test_SingleHostAndNetwork() {
 	s.Equal([]Hostname{"db"}, pod.HostAliases)
 	s.Equal([]NetworkId{"test"}, pod.Networks)
 }
+
+func (s *MutatorTestSuite) Test_DuplicateHost() {
+	s.Test_SingleHostAndNetwork()
+
+	// add another pod in the same network with same hostname
+	request := s.createRequest("CREATE", "db2",
+		map[string]string{
+			"kubedock.host/0":    "db",
+			"kubedock.network/0": "test",
+		},
+		map[string]string{
+			"kubedock-pod": "true",
+		},
+		"20.21.22.23")
+	response := s.mutator.Handle(s.ctx, request)
+	s.False(response.Allowed)
+
+	s.NotNil(s.pods.Get("kubedock", "db"))
+	s.Nil(s.pods.Get("kubedock", "db2"))
+}
+
+func (s *MutatorTestSuite) Test_SecondHost() {
+	s.Test_SingleHostAndNetwork()
+
+	// add another pod in the same network with same hostname
+	request := s.createRequest("CREATE", "service",
+		map[string]string{
+			"kubedock.host/0":    "service",
+			"kubedock.network/0": "test",
+		},
+		map[string]string{
+			"kubedock-pod": "true",
+		},
+		"20.21.22.23")
+	response := s.mutator.Handle(s.ctx, request)
+	response.Complete(request)
+	s.assertMutated(request, response)
+
+	s.NotNil(s.pods.Get("kubedock", "db"))
+	s.NotNil(s.pods.Get("kubedock", "service"))
+}
