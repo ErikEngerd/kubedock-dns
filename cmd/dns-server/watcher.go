@@ -112,7 +112,7 @@ func getPodEssentials(k8spod *corev1.Pod, overrideIP string) (*Pod, error) {
 	log.Printf("Pod %s/%s: hostaliases %v, networks %v",
 		k8spod.Namespace, k8spod.Name, hostaliases, networks)
 	if len(networks) == 0 || len(hostaliases) == 0 {
-		return nil, fmt.Errorf("%s/%s: Pod not configured in DNS",
+		return nil, fmt.Errorf("%s/%s: Pod not configured in DNS, either no host or no network defined",
 			k8spod.Namespace, k8spod.Name)
 	}
 

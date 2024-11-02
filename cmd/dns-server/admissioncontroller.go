@@ -28,16 +28,16 @@ const (
 	CONTROLLER_NAME = "kubedock-admission"
 )
 
-type PatchOperation struct {
-	Op    string      `json:"op"`
-	Path  string      `json:"path"`
-	Value interface{} `json:"value,omitempty"`
-}
-
 type DnsMutator struct {
 	pods         *Pods
 	dnsServiceIP string
 	clientConfig *dns.ClientConfig
+}
+
+type PatchOperation struct {
+	Op    string      `json:"op"`
+	Path  string      `json:"path"`
+	Value interface{} `json:"value,omitempty"`
 }
 
 func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConfig) *DnsMutator {
@@ -55,18 +55,14 @@ func (mutator *DnsMutator) errored(code int32, err error) admission.Response {
 }
 
 func (mutator *DnsMutator) Handle(ctx context.Context, request admission.Request) admission.Response {
-	log.Println("Inside handle")
-
 	var k8spod corev1.Pod
 	err := json.Unmarshal(request.Object.Raw, &k8spod)
 	if err != nil {
 		return mutator.errored(http.StatusBadRequest, fmt.Errorf("Could not unmarshal pod: %v", err))
 	}
-
-	log.Printf("Adding dnsconfig and policy to pod %s/%s", k8spod.Namespace, k8spod.Name)
-
 	err = mutator.validateK8sPod(k8spod, request.Operation)
 	if err != nil {
+
 		return mutator.rejectPod(request, err)
 	}
 	return mutator.addDnsConfiguration(request)
@@ -112,9 +108,10 @@ func (mutator *DnsMutator) validatePod(operation admissionv1.Operation, pod *Pod
 	// reject deployment because the specific pod is giving an error,
 	// here we ignore errors from other pods.
 	// In this design, only pods with valid network config can be deployed,
-	// so errors in other pods should never occur. However, metadata of pods
-	// can be changed in running pods, causing errors there. We do not want errors
-	// in other pods to influence deployment of valid pods.
+	// so errors in other pods should never occur.
+	//
+	// With more than one replica we cannot 100% guarantee that invalid pods will
+	// be rejected, but in practice it should be close to 100%
 	networks, podErrors := mutator.pods.Networks()
 	if podErrors == nil {
 		return networks, nil
@@ -129,7 +126,7 @@ func (mutator *DnsMutator) validatePod(operation admissionv1.Operation, pod *Pod
 }
 
 func (mutator *DnsMutator) addDnsConfiguration(request admission.Request) admission.Response {
-
+	log.Printf("Adding dnsconfig to %s/%s", request.Namespace, request.Name)
 	ndots := strconv.Itoa(mutator.clientConfig.Ndots)
 	timeout := strconv.Itoa(mutator.clientConfig.Timeout)
 	attempts := strconv.Itoa(mutator.clientConfig.Attempts)
@@ -146,7 +143,6 @@ func (mutator *DnsMutator) addDnsConfiguration(request admission.Request) admiss
 				Nameservers: []string{mutator.dnsServiceIP},
 				Searches:    mutator.clientConfig.Search,
 				Options: []corev1.PodDNSConfigOption{
-					// TODO: examine whether "port" works
 					{Name: "ndots", Value: &ndots},
 					{Name: "timeout", Value: &timeout},
 					{Name: "attempts", Value: &attempts},
