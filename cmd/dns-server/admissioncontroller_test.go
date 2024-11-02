@@ -300,3 +300,67 @@ func (s *MutatorTestSuite) Test_MissingLabel() {
 
 	s.Nil(s.pods.Get("kubedock", "db"))
 }
+
+func (s *MutatorTestSuite) Test_UpdateAllowedWhenNetworkNotModified() {
+	s.Test_SingleHostAndNetwork()
+	request := s.createRequest("UPDATE", "db",
+		map[string]string{
+			"kubedock.host/0":    "db",
+			"kubedock.network/0": "test",
+			"anotherannotation":  "anothervalue",
+		},
+		map[string]string{
+			"kubedock-pod": "true",
+			"anotherlabel": "anothervalue2",
+		},
+		"20.21.22.23")
+	response := s.mutator.Handle(s.ctx, request)
+	s.Nil(response.Complete(request))
+
+	s.assertMutated(request, response)
+
+	pod := s.pods.Get("kubedock", "db")
+	s.NotNil(pod)
+	s.Equal([]Hostname{"db"}, pod.HostAliases)
+	s.Equal([]NetworkId{"test"}, pod.Networks)
+}
+
+func (s *MutatorTestSuite) Test_UpdateDeniedWhenHostModified() {
+	s.Test_SingleHostAndNetwork()
+
+	request := s.createRequest("UPDATE", "db",
+		map[string]string{
+			"kubedock.host/0":    "db2",
+			"kubedock.network/0": "test",
+		},
+		map[string]string{
+			"kubedock-pod": "true",
+		},
+		"20.21.22.23")
+	response := s.mutator.Handle(s.ctx, request)
+	s.Nil(response.Complete(request))
+
+	s.False(response.Allowed)
+	log.Printf("Message: %s", response.Result.Message)
+	s.True(strings.Contains(response.Result.Message, "cannot change network"))
+}
+
+func (s *MutatorTestSuite) Test_UpdateDeniedWhenNetworkModified() {
+	s.Test_SingleHostAndNetwork()
+
+	request := s.createRequest("UPDATE", "db",
+		map[string]string{
+			"kubedock.host/0":    "db",
+			"kubedock.network/0": "test2",
+		},
+		map[string]string{
+			"kubedock-pod": "true",
+		},
+		"20.21.22.23")
+	response := s.mutator.Handle(s.ctx, request)
+	s.Nil(response.Complete(request))
+
+	s.False(response.Allowed)
+	log.Printf("Message: %s", response.Result.Message)
+	s.True(strings.Contains(response.Result.Message, "cannot change network"))
+}
