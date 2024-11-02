@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"k8s.io/klog/v2"
 	"net"
 	"strings"
 	"sync"
@@ -27,7 +27,7 @@ func (dnsServer *ExternalDNSServer) Resolve(r *dns.Msg) *dns.Msg {
 	c := new(dns.Client)
 	resp, _, err := c.Exchange(r, dnsServer.upstreamDNSServer)
 	if err != nil {
-		log.Printf("Error forwarding to upstream: %v", err)
+		klog.Errorf("Error forwarding to upstream: %v", err)
 		m := new(dns.Msg)
 		m.SetRcode(r, dns.RcodeServerFailure)
 		return m
@@ -71,12 +71,12 @@ func (dnsServer *KubeDockDns) SetNetworks(networks *Networks) {
 func (dnsServer *KubeDockDns) Serve() {
 	dns.HandleFunc(".", dnsServer.handleDNSRequest)
 	server := &dns.Server{Addr: dnsServer.port, Net: "udp"}
-	log.Printf("Starting DNS server on %s\n", server.Addr)
+	klog.Infof("Starting DNS server on %s\n", server.Addr)
 	err := server.ListenAndServe()
-	defer server.Shutdown()
 	if err != nil {
-		log.Fatalf("Failed to start server: %s\n ", err.Error())
+		klog.Fatalf("Failed to start server: %s\n ", err.Error())
 	}
+	defer server.Shutdown()
 }
 
 func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
@@ -115,10 +115,10 @@ func (dnsServer *KubeDockDns) answerQuestion(questions []dns.Question, networkSn
 	for _, question := range questions {
 		var rrs []dns.RR
 		if question.Qtype == dns.TypeA {
-			log.Printf("dns: A %s", question.Name)
+			klog.V(2).Infof("dns: A %s", question.Name)
 			rrs = resolveHostname(networkSnapshot, question, sourceIp, dnsServer.searchDomain)
 		} else if question.Qtype == dns.TypePTR {
-			log.Printf("dns: PTR %s", question.Name)
+			klog.V(2).Infof("dns: PTR %s", question.Name)
 			rrs = resolveIP(networkSnapshot, question, sourceIp)
 		}
 		if len(rrs) > 0 {
@@ -137,7 +137,7 @@ func (dnsServer *KubeDockDns) answerQuestion(questions []dns.Question, networkSn
 
 func resolveHostname(networks *Networks, question dns.Question, sourceIp IPAddress,
 	searchDomain string) []dns.RR {
-	log.Printf("dns: A %s", question.Name)
+	klog.V(3).Infof("dns: A %s", question.Name)
 
 	hostname := question.Name[:len(question.Name)-1]
 	if strings.HasSuffix(hostname, "."+searchDomain) {
@@ -147,7 +147,7 @@ func resolveHostname(networks *Networks, question dns.Question, sourceIp IPAddre
 
 	rrs := make([]dns.RR, 0)
 	for _, ip := range ips {
-		log.Printf("dns: %s -> %s", question.Name, ip)
+		klog.V(3).Infof("dns: %s -> %s", question.Name, ip)
 		rr := createAResponse(question.Name, ip)
 		rrs = append(rrs, rr)
 	}
@@ -171,7 +171,7 @@ func PTRtoIP(ptr string) string {
 }
 
 func resolveIP(networks *Networks, question dns.Question, sourceIp IPAddress) []dns.RR {
-	log.Printf("dns: A %s", question.Name)
+	klog.V(3).Infof("dns: A %s", question.Name)
 
 	ip := PTRtoIP(question.Name)
 	hosts := networks.ReverseLookup(
@@ -181,7 +181,7 @@ func resolveIP(networks *Networks, question dns.Question, sourceIp IPAddress) []
 	var rrs []dns.RR
 
 	for _, host := range hosts {
-		log.Printf("dns: %s -> %s", question.Name, host)
+		klog.V(3).Infof("dns: %s -> %s", question.Name, host)
 		rr := createPTRResponse(question.Name, host)
 		rrs = append(rrs, rr)
 	}
@@ -202,7 +202,7 @@ func createAResponse(questionName string, ip IPAddress) *dns.A {
 }
 
 func createPTRResponse(questionName string, host Hostname) dns.RR {
-	log.Printf("Creating ptr with %v", host)
+	klog.V(3).Infof("Creating ptr with %v", host)
 	rr := &dns.PTR{
 		Hdr: dns.RR_Header{
 			Name:   questionName,

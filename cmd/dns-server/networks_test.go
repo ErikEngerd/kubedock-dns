@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/stretchr/testify/suite"
+	"k8s.io/klog/v2"
 	"slices"
 	"testing"
 	"wamblee.org/kubedock/dns/internal/support"
@@ -131,7 +132,9 @@ func (s *NetworkTestSuite) runTest(networkTest *NetworkTest) {
 	} else {
 		s.Nil(err)
 	}
-	networks.Log()
+	if klog.V(3).Enabled() {
+		networks.Log()
+	}
 	s.checkNetworks(networks)
 	for _, lookup := range networkTest.lookups {
 		ips := networks.Lookup(IPAddress(lookup.sourceIp),

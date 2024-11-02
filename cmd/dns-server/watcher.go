@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"log"
+	"k8s.io/klog/v2"
 	"strings"
 )
 
@@ -43,7 +43,7 @@ func WatchPods(
 			if err == nil {
 				pods.AddOrUpdate(pod)
 			} else {
-				log.Printf("Ignoring pod %s/%s: %v", k8spod.Namespace, k8spod.Name, err)
+				klog.Infof("Ignoring pod %s/%s: %v", k8spod.Namespace, k8spod.Name, err)
 			}
 		}
 	}
@@ -76,7 +76,7 @@ func WatchPods(
 func getPod(obj any) *corev1.Pod {
 	k8spod, ok := obj.(*corev1.Pod)
 	if !ok {
-		log.Panicf("Object of wrong type: %v", obj)
+		klog.Fatalf("Object of wrong type: %v", obj)
 	}
 	return k8spod
 }
@@ -84,7 +84,7 @@ func getPod(obj any) *corev1.Pod {
 func getPodEssentials(k8spod *corev1.Pod, overrideIP string) (*Pod, error) {
 
 	if overrideIP == "" && k8spod.Status.PodIP == "" {
-		return nil, fmt.Errorf("%s/%s: Pod does not have an IP",
+		return nil, fmt.Errorf("%s/%s: Pod does not have an IP (yet)",
 			k8spod.Namespace, k8spod.Name)
 	}
 
@@ -109,7 +109,7 @@ func getPodEssentials(k8spod *corev1.Pod, overrideIP string) (*Pod, error) {
 		}
 	}
 
-	log.Printf("Pod %s/%s: hostaliases %v, networks %v",
+	klog.Infof("%s/%s: hostaliases %v, networks %v",
 		k8spod.Namespace, k8spod.Name, hostaliases, networks)
 	if len(networks) == 0 || len(hostaliases) == 0 {
 		return nil, fmt.Errorf("%s/%s: Pod not configured in DNS, either no host or no network defined",

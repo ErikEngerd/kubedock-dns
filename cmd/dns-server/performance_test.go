@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"log"
+	"k8s.io/klog/v2"
 	"strconv"
 	"testing"
 )
@@ -29,7 +29,7 @@ func BenchmarkCreateNetworks(b *testing.B) {
 		}
 	}
 
-	log.Printf("Created pods")
+	klog.V(3).Infof("Created pods")
 	b.ResetTimer()
 	for _ = range b.N {
 		//t0 := time.Now()

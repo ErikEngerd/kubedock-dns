@@ -27,6 +27,9 @@ spec:
 {{/*          - tail*/}}
 {{/*          - -f*/}}
 {{/*          - /dev/null*/}}
+        args:
+          - --v
+          - "{{ .Values.logLevel }}"
         ports:
           - containerPort: 1053
             name: dns

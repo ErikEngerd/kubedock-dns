@@ -2,18 +2,18 @@ package main
 
 import (
 	"context"
+	goflags "flag"
 	"fmt"
-	"log"
+	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 	"os"
 	"wamblee.org/kubedock/dns/internal/support"
-
-	"github.com/spf13/cobra"
 )
 
 func createDns() *KubeDockDns {
 	clientConfig := support.GetClientConfig()
 	upstreamDnsServer := NewExternalDNSServer(clientConfig.Servers[0] + ":53")
-	log.Printf("DNS server %s", upstreamDnsServer)
+	klog.Infof("Upstream DNS server %s", upstreamDnsServer)
 	kubedocDns := NewKubeDockDns(upstreamDnsServer, ":1053", clientConfig.Search[0])
 	return kubedocDns
 }
@@ -24,29 +24,35 @@ type DnsWatcherIntegration struct {
 }
 
 func (integrator *DnsWatcherIntegration) AddOrUpdate(pod *Pod) {
-	log.Printf("Pod added or updated %+v", *pod)
+	klog.V(2).Infof("%v/%v: Pod added or updated", pod.Namespace, pod.Name)
 	if integrator.pods.AddOrUpdate(pod) {
 		integrator.updateDns()
 	}
 }
 
 func (integrator *DnsWatcherIntegration) Delete(namespace, name string) {
+	klog.V(2).Infof("%v/%v: deleted", namespace, name)
 	integrator.pods.Delete(namespace, name)
 	integrator.updateDns()
 }
 
 func (integrator *DnsWatcherIntegration) updateDns() {
 	networks, err := integrator.pods.Networks()
-	// TODO robusness: when one pod  results in an error we don't want
-	// the hwole network configuration ot freeze of be incomplete
 	if err != nil {
-		log.Printf("Errors occured creating network configuration '%v'", err)
+		klog.Warningf("Errors occured creating network configuration, only conflicting pods are affected '%v'", err)
 	}
 	integrator.dns.SetNetworks(networks)
-	networks.Log()
+	if klog.V(3).Enabled() {
+		networks.Log()
+	}
 }
 
 func execute(cmd *cobra.Command, args []string) error {
+
+	klog.Info("Starting DNS server and mutator")
+	klog.V(2).Info("Verbose logging enabled")
+	klog.V(3).Info("Debug logging enabled")
+
 	if len(args) > 0 {
 		return fmt.Errorf("No arguments expected, only options")
 	}
@@ -60,7 +66,7 @@ func execute(cmd *cobra.Command, args []string) error {
 
 	clientset, namespace := support.GetKubernetesConnection()
 
-	log.Printf("Watching namespace %s", namespace)
+	klog.Infof("Watching namespace %s", namespace)
 
 	// DNS server
 	dns := createDns()
@@ -92,6 +98,9 @@ func execute(cmd *cobra.Command, args []string) error {
 }
 
 func main() {
+	klogFlags := goflags.NewFlagSet("", goflags.PanicOnError)
+	klog.InitFlags(klogFlags)
+
 	cmd := &cobra.Command{
 		Use:   "kubedock-dns",
 		Short: "Run a DNS server and mutator for test containers",
@@ -115,6 +124,8 @@ network`,
 		"/etc/kubedock/pki/tls.crt", "Certificate file")
 	cmd.PersistentFlags().StringVar(&KUBEDOCK_KEY_FILE, "key",
 		"/etc/kubedock/pki/tls.key", "Key file")
+
+	cmd.Flags().AddGoFlagSet(klogFlags)
 
 	cmd.Execute()
 }

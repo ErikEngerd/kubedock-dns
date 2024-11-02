@@ -9,7 +9,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
-	"log"
+	"k8s.io/klog/v2"
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"strconv"
@@ -50,7 +50,7 @@ func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConf
 }
 
 func (mutator *DnsMutator) errored(code int32, err error) admission.Response {
-	log.Printf("Error: %d: %v", code, err)
+	klog.Errorf("Error: %d: %v", code, err)
 	return admission.Errored(code, err)
 }
 
@@ -78,15 +78,18 @@ func (mutator *DnsMutator) validateK8sPod(k8spod corev1.Pod, operation admission
 	}
 	pod, err := getPodEssentials(&k8spod, podIpOverride)
 	if err != nil {
+		klog.Infof("%v", err)
 		return err
 	}
 	var networks *Networks
 	networks, err = mutator.validatePod(operation, pod)
 	if err != nil {
+		klog.Warningf("%s/%s invalid", pod.Namespace, pod.Name)
 		return err
 	}
-	log.Printf("Pod %s/%s was valid", pod.Namespace, pod.Name)
-	networks.Log()
+	if klog.V(3).Enabled() {
+		networks.Log()
+	}
 	return nil
 }
 
@@ -126,7 +129,7 @@ func (mutator *DnsMutator) validatePod(operation admissionv1.Operation, pod *Pod
 }
 
 func (mutator *DnsMutator) addDnsConfiguration(request admission.Request) admission.Response {
-	log.Printf("Adding dnsconfig to %s/%s", request.Namespace, request.Name)
+	klog.Infof("%s/%s Adding dnsconfig", request.Namespace, request.Name)
 	ndots := strconv.Itoa(mutator.clientConfig.Ndots)
 	timeout := strconv.Itoa(mutator.clientConfig.Timeout)
 	attempts := strconv.Itoa(mutator.clientConfig.Attempts)
@@ -198,7 +201,7 @@ func runAdmisstionController(ctx context.Context,
 		return fmt.Errorf("Could not get dns service IP for service '%s'", dnsServiceName)
 	}
 	dnsServiceIP := svc.Spec.ClusterIP
-	log.Printf("Service IP is %s", dnsServiceIP)
+	klog.Infof("DNS service IP is %s", dnsServiceIP)
 
 	dnsMutator := NewDnsMutator(pods, dnsServiceIP, support.GetClientConfig())
 	controllerlog.SetLogger(zap.New())
@@ -216,6 +219,6 @@ func runAdmisstionController(ctx context.Context,
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	log.Printf("Starting webhook server on port 8443")
+	klog.Info("Starting webhook server on port 8443")
 	return http.ListenAndServeTLS(":8443", crtFile, keyFile, nil)
 }

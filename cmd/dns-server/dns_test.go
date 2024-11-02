@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/suite"
-	"log"
+	"k8s.io/klog/v2"
 	"testing"
 )
 
@@ -92,7 +92,7 @@ func (s *DNSTestSuite) verifyLookup(hostname string, sourceIp string, expectedIp
 		return m
 	}
 	rrs := dnsServer.answerQuestion(questions, networks, IPAddress(sourceIp), fallback)
-	log.Printf("RRS %+v", rrs)
+	klog.V(3).Infof("RRS %+v", rrs)
 	s.Equal(1, len(rrs))
 	s.Equal(expectedIp, rrs[0].(*dns.A).A.String())
 }
@@ -112,7 +112,7 @@ func (s *DNSTestSuite) verifyReverseLookup(ip string, sourceIp string, expectedH
 		return m
 	}
 	rrs := dnsServer.answerQuestion(questions, networks, IPAddress(sourceIp), fallback)
-	log.Printf("RRS %+v", rrs)
+	klog.V(3).Infof("RRS %+v", rrs)
 	s.Equal(1, len(rrs))
 	s.Equal(expectedHost, rrs[0].(*dns.PTR).Ptr)
 }

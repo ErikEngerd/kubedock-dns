@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"k8s.io/klog/v2"
 	"reflect"
 	"slices"
 	"strings"
@@ -138,10 +138,10 @@ func NewPodError(pod *Pod, err error) *PodError {
 
 func (net *Networks) Add(pod *Pod) *PodError {
 	if pod.IP == "" {
-		log.Panicf("Pod IP is not set: %+v", pod)
+		klog.Fatalf("Pod IP is not set: %+v", pod)
 	}
 	if len(pod.Networks) == 0 {
-		log.Panicf("Pod networks are not set: %+v", pod)
+		klog.Fatalf("Pod networks are not set: %+v", pod)
 	}
 
 	for _, networkId := range pod.Networks {
@@ -166,16 +166,16 @@ func (net *Networks) Add(pod *Pod) *PodError {
 }
 
 func (net *Networks) Log() {
-	log.Printf("Network count: %d", len(net.NameToNetwork))
+	klog.Infof("Network count: %d", len(net.NameToNetwork))
 	for networkId, network := range net.NameToNetwork {
-		log.Printf("Network %s", networkId)
+		klog.Infof("Network %s", networkId)
 		for ip, pod := range network.IPToPod {
-			log.Printf("  Pod: %s/%s", pod.Namespace, pod.Name)
-			log.Printf("    IP: %s", ip)
+			klog.Infof("  Pod: %s/%s", pod.Namespace, pod.Name)
+			klog.Infof("    IP: %s", ip)
 			for _, hostAlias := range pod.HostAliases {
-				log.Printf("    Hostalias: %s", hostAlias)
+				klog.Infof("    Hostalias: %s", hostAlias)
 			}
-			log.Println()
+			klog.Info("")
 		}
 	}
 }
@@ -185,7 +185,7 @@ func (net *Networks) Lookup(sourceIp IPAddress, hostname Hostname) []IPAddress {
 	if strings.HasPrefix(string(sourceIp), UNKNOWN_IP_PREFIX) {
 		return res
 	}
-	log.Printf("Lookup source ip '%s' host '%s'", sourceIp, hostname)
+	klog.V(3).Infof("Lookup source ip '%s' host '%s'", sourceIp, hostname)
 	networks := net.IpToNetworks[sourceIp]
 	if networks == nil {
 		return make([]IPAddress, 0)
@@ -206,16 +206,16 @@ func (net *Networks) ReverseLookup(sourceIp IPAddress, ip IPAddress) []Hostname 
 	if strings.HasPrefix(string(ip), UNKNOWN_IP_PREFIX) {
 		return nil
 	}
-	log.Printf("ReverseLookup: sourceIP %s IP %s", sourceIp, ip)
+	klog.V(3).Infof("ReverseLookup: sourceIP %s IP %s", sourceIp, ip)
 	networks := net.IpToNetworks[sourceIp]
 	if networks == nil {
 		return nil
 	}
 	for _, network := range networks {
-		log.Printf("Trying %s %v", network.Id, network)
+		klog.V(3).Infof("Trying %s %v", network.Id, network)
 		pod := network.IPToPod[ip]
 		if pod != nil {
-			log.Printf("Found hostaliases %v", pod.HostAliases)
+			klog.V(3).Infof("Found hostaliases %v", pod.HostAliases)
 			return pod.HostAliases
 		}
 	}
@@ -258,10 +258,11 @@ func (pods *Pods) AddOrUpdate(pod *Pod) bool {
 	oldpod, _ := pods.Pods.Get(key)
 	if oldpod != nil {
 		if pod.Equal(oldpod) {
-			log.Printf("no change to pod definition %s/%s", pod.Namespace, pod.Name)
+			klog.V(2).Infof("no change to pod definition %s/%s", pod.Namespace, pod.Name)
 			return false
 		}
 	}
+	klog.Infof("%s/%s updated", pod.Namespace, pod.Name)
 	pods.Pods.Put(key, pod.Copy())
 	return true
 }

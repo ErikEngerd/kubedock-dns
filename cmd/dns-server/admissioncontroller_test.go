@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"log"
+	"k8s.io/klog/v2"
 	"math/rand"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strconv"
@@ -217,7 +217,7 @@ func (s *MutatorTestSuite) Test_DuplicateHost() {
 	response := s.mutator.Handle(s.ctx, request)
 	s.False(response.Allowed)
 
-	log.Printf("Message: %s", response.Result.Message)
+	klog.V(3).Infof("Message: %s", response.Result.Message)
 	s.True(strings.Contains(response.Result.Message, "already mapped to"))
 
 	s.NotNil(s.pods.Get("kubedock", "db"))
@@ -258,7 +258,7 @@ func (s *MutatorTestSuite) Test_MissingHostname() {
 	response := s.mutator.Handle(s.ctx, request)
 	s.False(response.Allowed)
 
-	log.Printf("Message: %s", response.Result.Message)
+	klog.V(3).Infof("Message: %s", response.Result.Message)
 	s.True(strings.Contains(response.Result.Message, "no host or no network"))
 
 	s.Nil(s.pods.Get("kubedock", "db"))
@@ -277,7 +277,7 @@ func (s *MutatorTestSuite) Test_MissingNetwork() {
 	response := s.mutator.Handle(s.ctx, request)
 	s.False(response.Allowed)
 
-	log.Printf("Message: %s", response.Result.Message)
+	klog.V(3).Infof("Message: %s", response.Result.Message)
 	s.True(strings.Contains(response.Result.Message, "no host or no network"))
 
 	s.Nil(s.pods.Get("kubedock", "db"))
@@ -295,7 +295,7 @@ func (s *MutatorTestSuite) Test_MissingLabel() {
 	response := s.mutator.Handle(s.ctx, request)
 	s.False(response.Allowed)
 
-	log.Printf("Message: %s", response.Result.Message)
+	klog.V(3).Infof("Message: %s", response.Result.Message)
 	s.True(strings.Contains(response.Result.Message, "does not have label"))
 
 	s.Nil(s.pods.Get("kubedock", "db"))
@@ -341,7 +341,7 @@ func (s *MutatorTestSuite) Test_UpdateDeniedWhenHostModified() {
 	s.Nil(response.Complete(request))
 
 	s.False(response.Allowed)
-	log.Printf("Message: %s", response.Result.Message)
+	klog.V(3).Infof("Message: %s", response.Result.Message)
 	s.True(strings.Contains(response.Result.Message, "cannot change network"))
 }
 
@@ -361,6 +361,6 @@ func (s *MutatorTestSuite) Test_UpdateDeniedWhenNetworkModified() {
 	s.Nil(response.Complete(request))
 
 	s.False(response.Allowed)
-	log.Printf("Message: %s", response.Result.Message)
+	klog.V(3).Infof("Message: %s", response.Result.Message)
 	s.True(strings.Contains(response.Result.Message, "cannot change network"))
 }
