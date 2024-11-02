@@ -11,9 +11,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"log"
 	"math/rand"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -215,6 +217,9 @@ func (s *MutatorTestSuite) Test_DuplicateHost() {
 	response := s.mutator.Handle(s.ctx, request)
 	s.False(response.Allowed)
 
+	log.Printf("Message: %s", response.Result.Message)
+	s.True(strings.Contains(response.Result.Message, "already mapped to"))
+
 	s.NotNil(s.pods.Get("kubedock", "db"))
 	s.Nil(s.pods.Get("kubedock", "db2"))
 }
@@ -238,4 +243,60 @@ func (s *MutatorTestSuite) Test_SecondHost() {
 
 	s.NotNil(s.pods.Get("kubedock", "db"))
 	s.NotNil(s.pods.Get("kubedock", "service"))
+}
+
+func (s *MutatorTestSuite) Test_MissingHostname() {
+	// add another pod in the same network with same hostname
+	request := s.createRequest("CREATE", "db2",
+		map[string]string{
+			"kubedock.network/0": "test",
+		},
+		map[string]string{
+			"kubedock-pod": "true",
+		},
+		"20.21.22.23")
+	response := s.mutator.Handle(s.ctx, request)
+	s.False(response.Allowed)
+
+	log.Printf("Message: %s", response.Result.Message)
+	s.True(strings.Contains(response.Result.Message, "no host or no network"))
+
+	s.Nil(s.pods.Get("kubedock", "db"))
+}
+
+func (s *MutatorTestSuite) Test_MissingNetwork() {
+	// add another pod in the same network with same hostname
+	request := s.createRequest("CREATE", "db2",
+		map[string]string{
+			"kubedock.host/0": "db",
+		},
+		map[string]string{
+			"kubedock-pod": "true",
+		},
+		"20.21.22.23")
+	response := s.mutator.Handle(s.ctx, request)
+	s.False(response.Allowed)
+
+	log.Printf("Message: %s", response.Result.Message)
+	s.True(strings.Contains(response.Result.Message, "no host or no network"))
+
+	s.Nil(s.pods.Get("kubedock", "db"))
+}
+
+func (s *MutatorTestSuite) Test_MissingLabel() {
+	// add another pod in the same network with same hostname
+	request := s.createRequest("CREATE", "db2",
+		map[string]string{
+			"kubedock.host/0":    "db",
+			"kubedock.network/0": "test",
+		},
+		map[string]string{},
+		"20.21.22.23")
+	response := s.mutator.Handle(s.ctx, request)
+	s.False(response.Allowed)
+
+	log.Printf("Message: %s", response.Result.Message)
+	s.True(strings.Contains(response.Result.Message, "does not have label"))
+
+	s.Nil(s.pods.Get("kubedock", "db"))
 }
