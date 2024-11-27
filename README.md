@@ -65,6 +65,17 @@ This behavior can be achieved as follows:
   (kubedock-pod currently), so-called 'opt-in' so that we have control on which pods are
   mutated.
 
+# Technical details
+
+* An embedded DNS server is used based on miekg/dns, the same DNS package used by coredns, the standard
+  nameserver of kubernetes. This allows us to use the source IP for DNS lookups.
+* The client-go Informer is used to keep up to date with changes to pods
+* The controller-runtime package is used for implementing the mutating admission controller.
+
+kubedock-dns tries to validate the network setup on deployment of pods. It also pervents changes to the
+network setup after deployment, but still allows any other changes. The idea is to achieve fast failure
+for detecting problems.
+
 # Kubedock changes
 
 The advantage of this model is that it is relatively ueasy to integrate with kubedock. All that needs
