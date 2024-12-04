@@ -29,6 +29,7 @@ const (
 )
 
 type DnsMutator struct {
+	podConfig    PodConfig
 	pods         *Pods
 	dnsServiceIP string
 	clientConfig *dns.ClientConfig
@@ -40,8 +41,10 @@ type PatchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConfig) *DnsMutator {
+func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConfig,
+	podConfig PodConfig) *DnsMutator {
 	mutator := DnsMutator{
+		podConfig:    podConfig,
 		pods:         pods,
 		dnsServiceIP: dnsServiceIP,
 		clientConfig: clientConfig,
@@ -76,7 +79,7 @@ func (mutator *DnsMutator) validateK8sPod(k8spod corev1.Pod, operation admission
 		podIpOverride = UNKNOWN_IP_PREFIX + strconv.Itoa(time.Now().Nanosecond()) +
 			strconv.Itoa(rand.Int())
 	}
-	pod, err := getPodEssentials(&k8spod, podIpOverride)
+	pod, err := getPodEssentials(&k8spod, podIpOverride, mutator.podConfig)
 	if err != nil {
 		klog.Infof("%v", err)
 		return err
@@ -194,7 +197,8 @@ func runAdmisstionController(ctx context.Context,
 	namespace string,
 	dnsServiceName string,
 	crtFile string,
-	keyFile string) error {
+	keyFile string,
+	podConfig PodConfig) error {
 
 	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, dnsServiceName, v1.GetOptions{})
 	if err != nil {
@@ -203,7 +207,7 @@ func runAdmisstionController(ctx context.Context,
 	dnsServiceIP := svc.Spec.ClusterIP
 	klog.Infof("DNS service IP is %s", dnsServiceIP)
 
-	dnsMutator := NewDnsMutator(pods, dnsServiceIP, support.GetClientConfig())
+	dnsMutator := NewDnsMutator(pods, dnsServiceIP, support.GetClientConfig(), podConfig)
 	controllerlog.SetLogger(zap.New())
 
 	webhook := admission.Webhook{

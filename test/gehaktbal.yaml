@@ -6,7 +6,7 @@ metadata:
     kubedock.network/0: "mynet"
     kubedock.network/1: "othernet"
   labels:
-    kubedock-pod: "true"
+    kubedock: "true"
   name: gehaktbal
   namespace: kubedock
 spec:

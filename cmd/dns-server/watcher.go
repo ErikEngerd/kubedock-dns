@@ -15,12 +15,11 @@ type PodAdmin interface {
 	Delete(namespace, name string)
 }
 
-// TODO serialize updates to the administration using channels
-
 func WatchPods(
 	clientset *kubernetes.Clientset,
 	namespace string,
-	pods PodAdmin) {
+	pods PodAdmin,
+	podConfig PodConfig) {
 
 	serializer := make(chan func())
 	go func() {
@@ -39,7 +38,7 @@ func WatchPods(
 	addOrUpdate := func(obj interface{}) {
 		serializer <- func() {
 			k8spod := getPod(obj)
-			pod, err := getPodEssentials(k8spod, "")
+			pod, err := getPodEssentials(k8spod, "", podConfig)
 			if err == nil {
 				pods.AddOrUpdate(pod)
 			} else {
@@ -81,16 +80,17 @@ func getPod(obj any) *corev1.Pod {
 	return k8spod
 }
 
-func getPodEssentials(k8spod *corev1.Pod, overrideIP string) (*Pod, error) {
+func getPodEssentials(k8spod *corev1.Pod, overrideIP string,
+	podConfig PodConfig) (*Pod, error) {
 
 	if overrideIP == "" && k8spod.Status.PodIP == "" {
 		return nil, fmt.Errorf("%s/%s: Pod does not have an IP (yet)",
 			k8spod.Namespace, k8spod.Name)
 	}
 
-	if k8spod.Labels[KUBEDOCK_LABEL_NAME] != "true" {
+	if k8spod.Labels[podConfig.LabelName] != "true" {
 		return nil, fmt.Errorf("%s/%s: Pod does not have label %s set to 'true'",
-			k8spod.Namespace, k8spod.Name, KUBEDOCK_LABEL_NAME)
+			k8spod.Namespace, k8spod.Name, podConfig.LabelName)
 	}
 
 	podIP := k8spod.Status.PodIP
@@ -102,9 +102,9 @@ func getPodEssentials(k8spod *corev1.Pod, overrideIP string) (*Pod, error) {
 	hostaliases := make([]Hostname, 0)
 
 	for key, value := range k8spod.Annotations {
-		if strings.HasPrefix(key, KUBEDOCK_HOSTALIAS_PREFIX) {
+		if strings.HasPrefix(key, podConfig.HostAliasPrefix) {
 			hostaliases = append(hostaliases, Hostname(value))
-		} else if strings.HasPrefix(key, KUBEDOCK_NETWORKID_PREFIX) {
+		} else if strings.HasPrefix(key, podConfig.NetworkIdPrefix) {
 			networks = append(networks, NetworkId(value))
 		}
 	}

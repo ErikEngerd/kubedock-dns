@@ -56,7 +56,7 @@ func (s *DNSTestSuite) Test_LookupLocal() {
 		return nil
 	})
 
-	dnsServer := NewKubeDockDns(upstream, ":1053", "xyz.svc.cluster.local")
+	dnsServer := NewKubeDockDns(upstream, ":1053", "xyz.svc.cluster.local", []string{})
 	dnsServer.networks = networks
 
 	// IP lookups
@@ -65,8 +65,9 @@ func (s *DNSTestSuite) Test_LookupLocal() {
 	s.verifyLookup("db.", "10.0.0.12", "10.0.0.10", dnsServer, networks)
 	s.verifyLookup("db.xyz.svc.cluster.local.", "10.0.0.12", "10.0.0.10", dnsServer, networks)
 
-	s.verifyLookup("db.", "10.0.0.11", "100.101.102.103", dnsServer, networks)
-	s.verifyLookup("db.xyz.svc.cluster.local.", "10.0.0.11", "100.101.102.103", dnsServer, networks)
+	// internal hostnames are never tried externally
+	s.verifyLookup("db.", "10.0.0.11", "", dnsServer, networks)
+	s.verifyLookup("db.xyz.svc.cluster.local.", "10.0.0.11", "", dnsServer, networks)
 
 	// PTR lookups
 
@@ -91,7 +92,12 @@ func (s *DNSTestSuite) verifyLookup(hostname string, sourceIp string, expectedIp
 		}
 		return m
 	}
-	rrs := dnsServer.answerQuestion(questions, networks, IPAddress(sourceIp), fallback)
+	rrs, err := dnsServer.answerQuestion(questions, networks, IPAddress(sourceIp), fallback)
+	if expectedIp == "" {
+		s.Require().NotNil(err)
+		return
+	}
+	s.Require().Nil(err)
 	klog.V(3).Infof("RRS %+v", rrs)
 	s.Equal(1, len(rrs))
 	s.Equal(expectedIp, rrs[0].(*dns.A).A.String())
@@ -111,7 +117,8 @@ func (s *DNSTestSuite) verifyReverseLookup(ip string, sourceIp string, expectedH
 		}
 		return m
 	}
-	rrs := dnsServer.answerQuestion(questions, networks, IPAddress(sourceIp), fallback)
+	rrs, err := dnsServer.answerQuestion(questions, networks, IPAddress(sourceIp), fallback)
+	s.Require().Nil(err)
 	klog.V(3).Infof("RRS %+v", rrs)
 	s.Equal(1, len(rrs))
 	s.Equal(expectedHost, rrs[0].(*dns.PTR).Ptr)

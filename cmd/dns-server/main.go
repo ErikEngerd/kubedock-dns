@@ -7,14 +7,19 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 	"os"
+	"time"
 	"wamblee.org/kubedock/dns/internal/support"
 )
 
-func createDns() *KubeDockDns {
+func createDns(config Config) *KubeDockDns {
 	clientConfig := support.GetClientConfig()
+	clientConfig.Timeout = int(config.DnsTimeout.Seconds())
+	clientConfig.Attempts = config.DnsRetries
+
 	upstreamDnsServer := NewExternalDNSServer(clientConfig.Servers[0] + ":53")
 	klog.Infof("Upstream DNS server %s", upstreamDnsServer)
-	kubedocDns := NewKubeDockDns(upstreamDnsServer, ":1053", clientConfig.Search[0])
+	kubedocDns := NewKubeDockDns(upstreamDnsServer, ":1053", clientConfig.Search[0],
+		config.InternalDomains)
 	return kubedocDns
 }
 
@@ -47,7 +52,7 @@ func (integrator *DnsWatcherIntegration) updateDns() {
 	}
 }
 
-func execute(cmd *cobra.Command, args []string) error {
+func execute(cmd *cobra.Command, args []string, config Config) error {
 
 	klog.Info("Starting DNS server and mutator")
 	klog.V(2).Info("Verbose logging enabled")
@@ -56,11 +61,13 @@ func execute(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("No arguments expected, only options")
 	}
-	fmt.Printf("Host alias prefix: %s\n", KUBEDOCK_HOSTALIAS_PREFIX)
-	fmt.Printf("Network prefix:    %s\n", KUBEDOCK_NETWORKID_PREFIX)
-	fmt.Printf("Pod label:         %s\n", KUBEDOCK_LABEL_NAME)
-	fmt.Printf("CRT file:          %s\n", KUBEDOCK_CRT_FILE)
-	fmt.Printf("KEY file:          %s\n", KUBEDOCK_KEY_FILE)
+	fmt.Printf("Host alias prefix:  %s\n", config.PodConfig.HostAliasPrefix)
+	fmt.Printf("Network prefix:     %s\n", config.PodConfig.NetworkIdPrefix)
+	fmt.Printf("Pod label:          %s\n", config.PodConfig.LabelName)
+	fmt.Printf("CRT file:           %s\n", config.CrtFile)
+	fmt.Printf("KEY file:           %s\n", config.KeyFile)
+	fmt.Printf("Client DNS timeout: %v\n", config.DnsTimeout)
+	fmt.Printf("Client DNS retries: %v\n", config.DnsRetries)
 
 	ctx := context.Background()
 
@@ -69,7 +76,7 @@ func execute(cmd *cobra.Command, args []string) error {
 	klog.Infof("Watching namespace %s", namespace)
 
 	// DNS server
-	dns := createDns()
+	dns := createDns(config)
 	sourceIp := os.Getenv("KUBEDOCK_DNS_SOURCE_IP")
 	if sourceIp != "" {
 		dns.OverrideSourceIP(IPAddress(sourceIp))
@@ -86,12 +93,12 @@ func execute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Watching Pods
-	go WatchPods(clientset, namespace, dnsWatcherIntegration)
+	go WatchPods(clientset, namespace, dnsWatcherIntegration, config.PodConfig)
 
 	// Admission controller
 
 	if err := runAdmisstionController(ctx, pods, clientset, namespace, "dns-server",
-		KUBEDOCK_CRT_FILE, KUBEDOCK_KEY_FILE); err != nil {
+		config.CrtFile, config.KeyFile, config.PodConfig); err != nil {
 		return fmt.Errorf("Could not start admission controler: %+v", err)
 	}
 	return nil
@@ -101,6 +108,7 @@ func main() {
 	klogFlags := goflags.NewFlagSet("", goflags.PanicOnError)
 	klog.InitFlags(klogFlags)
 
+	config := Config{}
 	cmd := &cobra.Command{
 		Use:   "kubedock-dns",
 		Short: "Run a DNS server and mutator for test containers",
@@ -111,20 +119,28 @@ this provides separate networks of communicating pods
 in a single namespace. Thus emulating a typical docker
 setup with host aliases where some containers share a 
 network`,
-		RunE: execute,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return execute(cmd, args, config)
+		},
 	}
 
-	cmd.PersistentFlags().StringVar(&KUBEDOCK_HOSTALIAS_PREFIX, "host-alias-prefix",
+	cmd.PersistentFlags().StringVar(&config.PodConfig.HostAliasPrefix, "host-alias-prefix",
 		"kubedock.hostalias/", "annotation prefix for hosttnames. ")
-	cmd.PersistentFlags().StringVar(&KUBEDOCK_NETWORKID_PREFIX, "network-prefix",
+	cmd.PersistentFlags().StringVar(&config.PodConfig.NetworkIdPrefix, "network-prefix",
 		"kubedock.network/", "annotation prefix for network names. ")
-	cmd.PersistentFlags().StringVar(&KUBEDOCK_LABEL_NAME, "label-name",
-		"kubedock-pod", "name of the label (with value 'true') to be applied to pods")
-	cmd.PersistentFlags().StringVar(&KUBEDOCK_CRT_FILE, "cert",
+	cmd.PersistentFlags().StringVar(&config.PodConfig.LabelName, "label-name",
+		"kubedock", "name of the label (with value 'true') to be applied to pods")
+	cmd.PersistentFlags().StringVar(&config.CrtFile, "cert",
 		"/etc/kubedock/pki/tls.crt", "Certificate file")
-	cmd.PersistentFlags().StringVar(&KUBEDOCK_KEY_FILE, "key",
+	cmd.PersistentFlags().StringVar(&config.KeyFile, "key",
 		"/etc/kubedock/pki/tls.key", "Key file")
-
+	cmd.PersistentFlags().StringSliceVar(&config.InternalDomains,
+		"internal-domain", []string{}, "internal domains that will not be resolved using the upstream DNS server.\n"+
+			"By default empty so that only domain names without dots in them are considered to be internal")
+	cmd.PersistentFlags().DurationVar(&config.DnsTimeout, "client-dns-timeout",
+		30*time.Second, "DNS timeout to use by instrumented pods")
+	cmd.PersistentFlags().IntVar(&config.DnsRetries, "client-dns-retries",
+		5, "Max DNS retries to do by clients")
 	cmd.Flags().AddGoFlagSet(klogFlags)
 
 	cmd.Execute()

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"k8s.io/klog/v2"
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -42,17 +44,24 @@ type KubeDockDns struct {
 	port              string
 	searchDomain      string
 
+	// These domains will not be resolved in the upstream server as well
+	// as domains without dots. When a record is not found, the server
+	// will return a SERVFAIL response, causing the client to retry.
+	internalDomains []string
+
 	overrideSourceIP IPAddress
 }
 
-func NewKubeDockDns(upstreamDnsServer DNSServer, port string, searchDomains string) *KubeDockDns {
+func NewKubeDockDns(upstreamDnsServer DNSServer, port string, searchDomains string,
+	internalDomains []string) *KubeDockDns {
 	server := KubeDockDns{
 		mutex:             sync.RWMutex{},
 		networks:          NewNetworks(),
 		upstreamDnsServer: upstreamDnsServer,
 		port:              port,
 		// final search suffix is the empty string for the case when we get
-		searchDomain: searchDomains,
+		searchDomain:    searchDomains,
+		internalDomains: internalDomains,
 	}
 	return &server
 }
@@ -79,15 +88,21 @@ func (dnsServer *KubeDockDns) Serve() {
 	defer server.Shutdown()
 }
 
-func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
-	// limit the time we take the read lock by getting a snapshot of the network config
-	// and using that. This allows the read locks to be short so that udpates to the network
-	// config can be quick and do not depend on the time for submitting requests to an upstream
-	// DNS
-	dnsServer.mutex.RLock()
-	networkSnapshot := dnsServer.networks
-	dnsServer.mutex.RUnlock()
+func (dnsServer *KubeDockDns) isInternal(host string) bool {
+	host, _ = strings.CutSuffix(host, ".")
+	host, _ = strings.CutSuffix(host, "."+dnsServer.searchDomain)
+	if !strings.Contains(host, ".") {
+		return true
+	}
+	for _, domain := range dnsServer.internalDomains {
+		if strings.HasSuffix(host, "."+domain) {
+			return true
+		}
+	}
+	return false
+}
 
+func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	sourceIp := dnsServer.overrideSourceIP
 	if sourceIp == "" {
 		sourceIp = IPAddress(w.RemoteAddr().String())
@@ -102,23 +117,52 @@ func (dnsServer *KubeDockDns) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg)
 	fallback := func() *dns.Msg {
 		return dnsServer.upstreamDnsServer.Resolve(r)
 	}
-	answer := dnsServer.answerQuestion(question, networkSnapshot, sourceIp, fallback)
 
-	m.Answer = answer
+	// Simple retry mechanism to wait for some time until the pod is known.
+	// This can occur if a pod does a name lookup so early after it has started
+	// that the IP address is not yet known in the DNS server.
+	tend := time.Now().Add(20 * time.Second)
+	for time.Now().Before(tend) {
+		answer, err := dnsServer.answerQuestionWithNetworkSnapshot(question, sourceIp, fallback)
+		if err == nil {
+			m.Answer = answer
+			w.WriteMsg(m)
+			return
+		}
+		time.Sleep(1 * time.Second)
+		klog.V(2).Infof("Retrying lookup")
+	}
+
+	klog.V(3).Infof("dns: %s: %s -> %s", sourceIp, question[0].Name, "SERVFAIL")
+	m.Rcode = dns.RcodeServerFailure
 	w.WriteMsg(m)
 }
 
+func (dnsServer *KubeDockDns) answerQuestionWithNetworkSnapshot(question []dns.Question, sourceIp IPAddress, fallback func() *dns.Msg) ([]dns.RR, error) {
+	// limit the time we take the read lock by getting a snapshot of the network config
+	// and using that. This allows the read locks to be short so that udpates to the network
+	// config can be quick and do not depend on the time for submitting requests to an upstream
+	// DNS
+	dnsServer.mutex.RLock()
+	networkSnapshot := dnsServer.networks
+	dnsServer.mutex.RUnlock()
+	answer, err := dnsServer.answerQuestion(question, networkSnapshot, sourceIp, fallback)
+	return answer, err
+}
+
 func (dnsServer *KubeDockDns) answerQuestion(questions []dns.Question, networkSnapshot *Networks, sourceIp IPAddress,
-	fallback func() *dns.Msg) []dns.RR {
+	fallback func() *dns.Msg) ([]dns.RR, error) {
 	answer := make([]dns.RR, 0)
 
 	for _, question := range questions {
 		var rrs []dns.RR
+		internal := false
 		if question.Qtype == dns.TypeA {
-			klog.V(2).Infof("dns: A %s", question.Name)
+			internal = dnsServer.isInternal(question.Name)
+			klog.V(2).Infof("dns: %s: A %s internal %v", sourceIp, question.Name, internal)
 			rrs = resolveHostname(networkSnapshot, question, sourceIp, dnsServer.searchDomain)
 		} else if question.Qtype == dns.TypePTR {
-			klog.V(2).Infof("dns: PTR %s", question.Name)
+			klog.V(2).Infof("dns: %s: PTR %s", sourceIp, question.Name)
 			rrs = resolveIP(networkSnapshot, question, sourceIp)
 		}
 		if len(rrs) > 0 {
@@ -128,16 +172,19 @@ func (dnsServer *KubeDockDns) answerQuestion(questions []dns.Question, networkSn
 			continue
 		}
 		// when one question cannot be answered we delegate fully to the upstream server.
-
-		upstreamResponse := fallback()
-		return upstreamResponse.Answer
+		if internal {
+			return nil, fmt.Errorf("Internal hostname not (yet) found")
+		} else {
+			upstreamResponse := fallback()
+			answer = append(answer, upstreamResponse.Answer...)
+		}
 	}
-	return answer
+	return answer, nil
 }
 
 func resolveHostname(networks *Networks, question dns.Question, sourceIp IPAddress,
 	searchDomain string) []dns.RR {
-	klog.V(3).Infof("dns: A %s", question.Name)
+	klog.V(3).Infof("dns: %s: A %s", sourceIp, question.Name)
 
 	hostname := question.Name[:len(question.Name)-1]
 	if strings.HasSuffix(hostname, "."+searchDomain) {
@@ -147,7 +194,7 @@ func resolveHostname(networks *Networks, question dns.Question, sourceIp IPAddre
 
 	rrs := make([]dns.RR, 0)
 	for _, ip := range ips {
-		klog.V(3).Infof("dns: %s -> %s", question.Name, ip)
+		klog.V(3).Infof("dns: %s: %s -> %s", sourceIp, question.Name, ip)
 		rr := createAResponse(question.Name, ip)
 		rrs = append(rrs, rr)
 	}
@@ -171,7 +218,7 @@ func PTRtoIP(ptr string) string {
 }
 
 func resolveIP(networks *Networks, question dns.Question, sourceIp IPAddress) []dns.RR {
-	klog.V(3).Infof("dns: A %s", question.Name)
+	klog.V(3).Infof("dns: %s: A %s", sourceIp, question.Name)
 
 	ip := PTRtoIP(question.Name)
 	hosts := networks.ReverseLookup(
@@ -181,7 +228,7 @@ func resolveIP(networks *Networks, question dns.Question, sourceIp IPAddress) []
 	var rrs []dns.RR
 
 	for _, host := range hosts {
-		klog.V(3).Infof("dns: %s -> %s", question.Name, host)
+		klog.V(3).Infof("dns: %s: %s -> %s", sourceIp, question.Name, host)
 		rr := createPTRResponse(question.Name, host)
 		rrs = append(rrs, rr)
 	}

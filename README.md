@@ -36,7 +36,7 @@ metadata:
     kubedock.hostalias/0: "db"
     kubedock.network/0: "test1"
   labels:
-    kubedock-pod: "true"
+    kubedock: "true"
   name: db1
   namespace: kubedock
 spec:
@@ -62,7 +62,7 @@ This behavior can be achieved as follows:
   the DNS server delegates to the upstream DNS server which is the standard kubernetes DNS server.
 * on deployment of pods, a pod is mutated using the dnsPolicy and dnsConfig fields to use the
   DNS server for lookups. The mutator is limited to mutating only pods with a certain label
-  (kubedock-pod currently), so-called 'opt-in' so that we have control on which pods are
+  ("kubedock" currently), so-called 'opt-in' so that we have control on which pods are
   mutated.
 
 # Technical details

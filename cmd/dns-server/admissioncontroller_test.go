@@ -22,6 +22,8 @@ import (
 type MutatorTestSuite struct {
 	suite.Suite
 
+	config PodConfig
+
 	ctx          context.Context
 	dnsip        string
 	pods         *Pods
@@ -31,9 +33,11 @@ type MutatorTestSuite struct {
 }
 
 func (s *MutatorTestSuite) SetupSuite() {
-	KUBEDOCK_LABEL_NAME = "kubedock-pod"
-	KUBEDOCK_HOSTALIAS_PREFIX = "kubedock.host/"
-	KUBEDOCK_NETWORKID_PREFIX = "kubedock.network/"
+	s.config = PodConfig{
+		LabelName:       "kubedock",
+		HostAliasPrefix: "kubedock.host/",
+		NetworkIdPrefix: "kubedock.network/",
+	}
 }
 
 func (s *MutatorTestSuite) SetupTest() {
@@ -48,9 +52,9 @@ func (s *MutatorTestSuite) SetupTest() {
 		Timeout:  10,
 		Attempts: 3,
 	}
-	s.mutator = NewDnsMutator(s.pods, s.dnsip, &s.clientConfig)
+	s.mutator = NewDnsMutator(s.pods, s.dnsip, &s.clientConfig, s.config)
 	s.stdlabels = map[string]string{
-		"kubedock-pod": "true",
+		"kubedock": "true",
 	}
 }
 
@@ -187,7 +191,7 @@ func (s *MutatorTestSuite) Test_SingleHostAndNetwork() {
 			"kubedock.network/0": "test",
 		},
 		map[string]string{
-			"kubedock-pod": "true",
+			"kubedock": "true",
 		},
 		"20.21.22.23")
 	response := s.mutator.Handle(s.ctx, request)
@@ -211,7 +215,7 @@ func (s *MutatorTestSuite) Test_DuplicateHost() {
 			"kubedock.network/0": "test",
 		},
 		map[string]string{
-			"kubedock-pod": "true",
+			"kubedock": "true",
 		},
 		"20.21.22.23")
 	response := s.mutator.Handle(s.ctx, request)
@@ -234,7 +238,7 @@ func (s *MutatorTestSuite) Test_SecondHost() {
 			"kubedock.network/0": "test",
 		},
 		map[string]string{
-			"kubedock-pod": "true",
+			"kubedock": "true",
 		},
 		"20.21.22.23")
 	response := s.mutator.Handle(s.ctx, request)
@@ -252,7 +256,7 @@ func (s *MutatorTestSuite) Test_MissingHostname() {
 			"kubedock.network/0": "test",
 		},
 		map[string]string{
-			"kubedock-pod": "true",
+			"kubedock": "true",
 		},
 		"20.21.22.23")
 	response := s.mutator.Handle(s.ctx, request)
@@ -271,7 +275,7 @@ func (s *MutatorTestSuite) Test_MissingNetwork() {
 			"kubedock.host/0": "db",
 		},
 		map[string]string{
-			"kubedock-pod": "true",
+			"kubedock": "true",
 		},
 		"20.21.22.23")
 	response := s.mutator.Handle(s.ctx, request)
@@ -310,7 +314,7 @@ func (s *MutatorTestSuite) Test_UpdateAllowedWhenNetworkNotModified() {
 			"anotherannotation":  "anothervalue",
 		},
 		map[string]string{
-			"kubedock-pod": "true",
+			"kubedock":     "true",
 			"anotherlabel": "anothervalue2",
 		},
 		"20.21.22.23")
@@ -334,7 +338,7 @@ func (s *MutatorTestSuite) Test_UpdateDeniedWhenHostModified() {
 			"kubedock.network/0": "test",
 		},
 		map[string]string{
-			"kubedock-pod": "true",
+			"kubedock": "true",
 		},
 		"20.21.22.23")
 	response := s.mutator.Handle(s.ctx, request)
@@ -354,7 +358,7 @@ func (s *MutatorTestSuite) Test_UpdateDeniedWhenNetworkModified() {
 			"kubedock.network/0": "test2",
 		},
 		map[string]string{
-			"kubedock-pod": "true",
+			"kubedock": "true",
 		},
 		"20.21.22.23")
 	response := s.mutator.Handle(s.ctx, request)

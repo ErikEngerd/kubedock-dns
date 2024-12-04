@@ -6,7 +6,7 @@ metadata:
     kubedock.hostalias/1: "frikandel.nl"
     kubedock.network/0: "othernet"
   labels:
-    kubedock-pod: "true"
+    kubedock: "true"
   name: loempia
   namespace: kubedock
 spec:

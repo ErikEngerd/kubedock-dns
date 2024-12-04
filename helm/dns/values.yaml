@@ -4,4 +4,4 @@
 # TODO make default 2
 replicas: 1
 logLevel: 3
-label: kubedock-pod
+label: kubedock

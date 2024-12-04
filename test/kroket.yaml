@@ -5,7 +5,7 @@ metadata:
     kubedock.hostalias/0: "kroket.nl"
     kubedock.network/0: "mynet"
   labels:
-    kubedock-pod: "true"
+    kubedock: "true"
   name: kroket
   namespace: kubedock
 spec:

@@ -5,7 +5,7 @@ metadata:
     kubedock.hostalias/0: "db"
     kubedock.network/0: "test1"
   labels:
-    kubedock-pod: "true"
+    kubedock: "true"
   name: db1
   namespace: kubedock
 spec:
