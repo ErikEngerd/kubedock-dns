@@ -6,15 +6,15 @@ concept in a single kubernetes namespace.
 
 In docker, containers are attached to a network and containers attached to the same
 network can contact each other using their hostname. It is possible to run different
-container with the same host names in different networks and these can run side by
-die without interference.
+containers with the same host names in different networks and these can run side by
+side without interference.
 
 For instance, it is possible to have two containers with hostname 'db' and 'service' running
 in one docker network and two cther containers with the same hostnames running in another.
 
 When using testcontainers with kubedock, kubedock creates containers with hostnames
 but uses a flat network approach. This means that hostnames are represented by services
-and containers communicate with each other using servicdes. This however limits the
+and containers communicate with each other using services. This limits the
 possibility of running concurrent tests that use the same hostnames for containers.
 In kubedock this is currently solved by 'locking' the namespaces so that tests cannot
 be run concurrently.
@@ -25,7 +25,7 @@ need for locking the namespace.
 
 # Conceptual solution
 
-Each pod used by kubedock to simulate a docker 'run', annotations are defined to
+In each pod used by kubedock to simulate a docker 'run', annotations are defined to
 define the hostname and network that the pod belongs to. For instance
 
 ```
@@ -72,7 +72,7 @@ This behavior can be achieved as follows:
 * The client-go Informer is used to keep up to date with changes to pods
 * The controller-runtime package is used for implementing the mutating admission controller.
 
-kubedock-dns tries to validate the network setup on deployment of pods. It also pervents changes to the
+kubedock-dns tries to validate the network setup on deployment of pods. It also prevents changes to the
 network setup after deployment, but still allows any other changes. The idea is to achieve fast failure
 for detecting problems.
 
