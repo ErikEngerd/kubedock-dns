@@ -83,6 +83,62 @@ to be done is instrument kubedock to add the required annotations and label (and
 kubedock-dns) so that the mechanism can be used. This solution came out of discussions with the
 kubedock maintainer. The next step is to prototype the required changes in kubedock to make it work.
 
+# Usage
+
+Currently this project does not have any deliveries but those will come soon in the form of docker 
+images and a helm chart. 
+
+For testing locally, the steps are described below. 
+
+## Prerequisites
+
+A local docker runtime, and a docker registry running at localhost port 5000.
+A kubernetes cluster (e.g. k3d) that can pull from the localhost port 5000. 
+
+Using k3d a cluster is created as follows: 
+```
+k3d cluster create dev --registry-config registries.yaml 
+```
+with the content of `registries.yaml` as follows: 
+```
+mirrors:
+  localhost:5000:
+    endpoint:
+      - http://host.k3d.internal:5000
+```
+
+The above setup makes sure the k3d can pull images from localhost:5000. 
+
+## Building
+
+Run the following to build and push the images. 
+```
+make push
+```
+
+## Installing kubedock-dns
+
+```
+helm upgrade --install kubedock-dns helm/dns 
+```
+
+## Run a local test with kubedock-dns
+
+In one terminal:
+```
+kubedock server --port-forward --disable-services
+```
+The --disable-services flag is required to be able to run
+multiple concurrent jobs. 
+
+In another terminal in your own project
+```
+export TESTCONTAINERS_RYUK_DISABLED=true  ## optional, can be enabled
+export TESTCONTAINERS_CHECKS_DISABLE=true ## optional, can be enabled
+export DOCKER_HOST=tcp://127.0.0.1:2475
+```
+
+Next, run your integration tests using testcontainers. 
 
 
 
