@@ -122,6 +122,11 @@ make push
 helm upgrade --install kubedock-dns helm/dns 
 ```
 
+## Try out the examples
+
+Try some of the examples in the test directory and look at the 
+logging of the the dns-server hat was installed by the helm chart. 
+
 ## Run a local test with kubedock-dns
 
 In one terminal:
