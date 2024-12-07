@@ -16,11 +16,12 @@ jobs:
     outputs:
       version: ${{ steps.set-version.outputs.version }}
     steps:
-      - name: set-version
+      - id: set-version
+        name: set-version
         run: |
           VERSION="${{ github.ref_name }}" 
           echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
-          cat $GITHUB_OUTPUT
+          
 
   call-pipeline:
     needs: set-version
