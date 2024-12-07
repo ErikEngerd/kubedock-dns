@@ -10,7 +10,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  HELM_CHART_PATH: ./helm/dns
+  HELM_CHART_PATH: ./helm/kubedock-dns
   GO_VERSION: '1.23'
   HELM_REPO_SUBDIR: charts  # Subdirectory for Helm charts in gh-pages
   VERSION: ${{ inputs.version }}
@@ -106,6 +106,7 @@ jobs:
           export HELMVERSION=0.0.0-${{ env.VERSION }}
           yq eval '.version = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           yq eval '.appVersion = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
+          yq eval '.version = strenv(VERSION)' -i ${{ env.HELM_CHART_PATH }}/values.yaml
           helm package ${{ env.HELM_CHART_PATH }} --destination .chart-archive
 
       - name: Check out GitHub Pages branch

@@ -9,6 +9,6 @@ logLevel: 3
 label: kubedock
 
 # container contiguration
-registry: ghcr.io
-# use the same version of the helm chart if not specified.
+registry: ghcr.io/erikengerd
+# container version to use.
 version:
