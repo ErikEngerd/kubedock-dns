@@ -103,7 +103,13 @@ jobs:
 
       - name: Package Helm chart
         run: |
-          export HELMVERSION=0.0.0-${{ env.VERSION }}
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "This is a tag build"
+            export HELMVERSION=${{ env.VERSION }}
+          else
+            echo "This is a snapshot build"
+            export HELMVERSION=0.0.0-${{ env.VERSION }}
+          fi
           yq eval '.version = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           yq eval '.appVersion = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           export LIBRARY="${{ env.REGISTRY }}/${{ github.repository_owner }}"
