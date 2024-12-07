@@ -2,11 +2,35 @@ name: Checkin pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      # for testing.
+      - ghactions
+    tags:
+      - 'v*'
+
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 jobs:
+  set-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+    steps:
+      - id: set-version
+        name: set-version
+        run: |
+          VERSION="${{ github.ref_name }}" 
+          echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+          
+
   call-pipeline:
+    needs: set-version
     uses: ./.github/workflows/pipeline.yaml
+    permissions:
+      packages: write
+      contents: write
+    secrets: inherit
     with:
-      version: ${{ github.ref_name }}-latest
+      version: ${{ needs.set-version.outputs.version }}

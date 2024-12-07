@@ -16,9 +16,17 @@ env:
   VERSION: ${{ inputs.version }}
 
 jobs:
+
   build-and-test:
     runs-on: ubuntu-latest
     steps:
+      - name: debug-info
+        run: |
+            echo "Registry: ${{ env.REGISTRY }}"
+            echo "Image name: ${{ env.IMAGE_NAME }}"
+            echo "Version: ${{ env.VERSION }}"
+            echo "Actor: ${{ github.actor }}"
+
       - uses: actions/checkout@v4
 
       - name: Set up Go
@@ -54,7 +62,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
 
       - name: Extract metadata for Docker
         id: meta
@@ -63,7 +71,6 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=semver,pattern={{version}}
-            type=sha,prefix={{branch}}-
             type=ref,event=branch
             type=ref,event=pr
 
@@ -72,7 +79,7 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.VERSION }}
+          tags:  ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
   helm-package-publish:
@@ -96,8 +103,9 @@ jobs:
 
       - name: Package Helm chart
         run: |
-          yq eval '.version = strenv(VERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
-          yq eval '.appVersion = strenv(VERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
+          export HELMVERSION=0.0.0-${{ env.VERSION }}
+          yq eval '.version = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
+          yq eval '.appVersion = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           helm package ${{ env.HELM_CHART_PATH }} --destination .chart-archive
 
       - name: Check out GitHub Pages branch
