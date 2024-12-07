@@ -3,7 +3,7 @@ entries:
   dns:
   - apiVersion: v2
     appVersion: 0.0.0-main
-    created: "2024-12-07T22:28:31.441925563Z"
+    created: "2024-12-07T22:32:43.4139754Z"
     description: Kubedock DNS
     digest: d5906a1a111a1766f9149a5dbc9f167031a04c2d8d5c9a0aa86381484284d15f
     name: dns
@@ -13,8 +13,18 @@ entries:
     version: 0.0.0-main
   kubedock-dns:
   - apiVersion: v2
+    appVersion: 0.0.2
+    created: "2024-12-07T22:32:43.414666518Z"
+    description: Kubedock DNS
+    digest: ddae0b00fedde302dd51dd115169661e82e5676e10e4c27ac62f269117766600
+    name: kubedock-dns
+    type: application
+    urls:
+    - https://ErikEngerd.github.io/kubedock-dns/charts/kubedock-dns-0.0.2.tgz
+    version: 0.0.2
+  - apiVersion: v2
     appVersion: 0.0.0-main
-    created: "2024-12-07T22:28:31.442356467Z"
+    created: "2024-12-07T22:32:43.414400593Z"
     description: Kubedock DNS
     digest: dc115b5241de36430bcfa3f4813dfe6f6f1334dcc18ee185ffc1e9bffc1bda85
     name: kubedock-dns
@@ -24,7 +34,7 @@ entries:
     version: 0.0.0-main
   - apiVersion: v2
     appVersion: 0.0.0-0.0.1
-    created: "2024-12-07T22:28:31.442142988Z"
+    created: "2024-12-07T22:32:43.41419526Z"
     description: Kubedock DNS
     digest: adeeb4a210a52bbc4c68307df90fd2640a78edce053bd3b48de9c2390359b5a9
     name: kubedock-dns
@@ -32,4 +42,4 @@ entries:
     urls:
     - https://ErikEngerd.github.io/kubedock-dns/charts/kubedock-dns-0.0.0-0.0.1.tgz
     version: 0.0.0-0.0.1
-generated: "2024-12-07T22:28:31.441571302Z"
+generated: "2024-12-07T22:32:43.413622944Z"
