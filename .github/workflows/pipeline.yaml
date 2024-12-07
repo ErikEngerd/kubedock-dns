@@ -9,7 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  HELM_CHART_PATH: ./helm
+  HELM_CHART_PATH: ./helm/dns
   GO_VERSION: '1.23'
   HELM_REPO_SUBDIR: charts  # Subdirectory for Helm charts in gh-pages
 
