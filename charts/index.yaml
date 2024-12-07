@@ -31,14 +31,4 @@ entries:
     urls:
     - https://ErikEngerd.github.io/kubedock-dns/charts/kubedock-dns-0.0.0-main.tgz
     version: 0.0.0-main
-  - apiVersion: v2
-    appVersion: 0.0.0-0.0.1
-    created: "2024-12-07T23:04:46.466565475Z"
-    description: Kubedock DNS
-    digest: adeeb4a210a52bbc4c68307df90fd2640a78edce053bd3b48de9c2390359b5a9
-    name: kubedock-dns
-    type: application
-    urls:
-    - https://ErikEngerd.github.io/kubedock-dns/charts/kubedock-dns-0.0.0-0.0.1.tgz
-    version: 0.0.0-0.0.1
 generated: "2024-12-07T23:04:46.46623251Z"
