@@ -16,6 +16,13 @@ env:
   VERSION: ${{ inputs.version }}
 
 jobs:
+  debug-info:
+    run: |
+      echo "Registry: ${{ env.REGISTRY }}"
+      echo "Image name: ${{ env.IMAGE_NAME }}"
+      echo "Version: ${{ env.VERSION }}"
+      echo "Actor: ${{ github.actor }}"
+
   build-and-test:
     runs-on: ubuntu-latest
     steps:
@@ -54,7 +61,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
 
       - name: Extract metadata for Docker
         id: meta
