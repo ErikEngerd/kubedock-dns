@@ -20,7 +20,7 @@ spec:
     spec:
       serviceAccountName: kubedock-dns-server
       containers:
-      - image: localhost:5000/kubedock-dns-server:1.0.0
+      - image: {{ .Values.registry }}/kubedock-dns:{{ default .Chart.Version .Values.version }}
         imagePullPolicy: Always
         name: kubedock-dns
 {{/*        command:*/}}

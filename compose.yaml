@@ -2,7 +2,7 @@
 services:
 
   dns-server:
-    image: $REGISTRY/kubedock-dns-server:1.0.0
+    image: $REGISTRY/kubedock-dns:1.0.0
     build:
       context: .
       dockerfile: Dockerfile

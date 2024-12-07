@@ -4,4 +4,11 @@
 # TODO make default 2
 replicas: 1
 logLevel: 3
+
+# only pods with this label set to "true" will be handled
 label: kubedock
+
+# container contiguration
+registry: ghcr.io
+# use the same version of the helm chart if not specified.
+version:
