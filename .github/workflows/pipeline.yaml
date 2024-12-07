@@ -106,7 +106,7 @@ jobs:
           export HELMVERSION=0.0.0-${{ env.VERSION }}
           yq eval '.version = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           yq eval '.appVersion = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
-          LIBRARY="${{ env.REGISTRY }}/${{ github.repository_owner }}"
+          export LIBRARY="${{ env.REGISTRY }}/${{ github.repository_owner }}"
           LIBRARY="$( echo "$LIBRARY" | tr '[:upper:]' '[:lower:]' )"
           yq eval '.registry = strenv(LIBRARY)' -i ${{ env.HELM_CHART_PATH }}/values.yaml
           yq eval '.version = strenv(VERSION)' -i ${{ env.HELM_CHART_PATH }}/values.yaml
