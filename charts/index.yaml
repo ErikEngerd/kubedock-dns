@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  dns:
+  - apiVersion: v2
+    appVersion: 0.0.0-main
+    created: "2024-12-07T21:23:37.445411464Z"
+    description: Kubedock DNS
+    digest: d5906a1a111a1766f9149a5dbc9f167031a04c2d8d5c9a0aa86381484284d15f
+    name: dns
+    type: application
+    urls:
+    - https://ErikEngerd.github.io/kubedock-dns/charts/dns-0.0.0-main.tgz
+    version: 0.0.0-main
+generated: "2024-12-07T21:23:37.445046062Z"
