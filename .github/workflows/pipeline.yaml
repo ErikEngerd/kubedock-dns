@@ -77,6 +77,8 @@ jobs:
     needs: docker-build-push
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -89,19 +91,11 @@ jobs:
         run: |
           helm package ${{ env.HELM_CHART_PATH }} --destination .chart-archive
 
-      - name: Configure Git
-        run: |
-          #git config --global user.name "${{ github.actor }}"
-          #git config --global user.email "${{ github.actor }}@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
       - name: Check out GitHub Pages branch
         uses: actions/checkout@v4
         with:
           ref: gh-pages
           path: gh-pages
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Helm repository
         run: |
@@ -112,7 +106,6 @@ jobs:
           cd ..
           git add .
           git commit -m "Update Helm chart repository"
-          #git push
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages
+          git push
 
 
