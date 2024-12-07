@@ -9,7 +9,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ lower(github.repository) }}
   HELM_CHART_PATH: ./helm/dns
   GO_VERSION: '1.23'
   HELM_REPO_SUBDIR: charts  # Subdirectory for Helm charts in gh-pages
@@ -20,6 +19,10 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
+      - name: lower case image name
+        run: |
+            echo "IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: debug-info
         run: |
             echo "Registry: ${{ env.REGISTRY }}"
