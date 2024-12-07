@@ -104,7 +104,7 @@ jobs:
 
       - name: Package Helm chart
         run: |
-          HELMVERSION=0.0.0-$VERSION
+          HELMVERSION=0.0.0-${{ env.VERSION }}
           yq eval '.version = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           yq eval '.appVersion = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           helm package ${{ env.HELM_CHART_PATH }} --destination .chart-archive
