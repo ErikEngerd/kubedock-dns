@@ -12,8 +12,9 @@ on:
       - main
 jobs:
   set-version:
-    runs-on: ubuntu-latest
-    run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+    steps:
+      - name: set-version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
 
   call-pipeline:
     uses: ./.github/workflows/pipeline.yaml
