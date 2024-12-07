@@ -52,10 +52,8 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       packages: write
-      id-token: write
-      actions: read
     steps:
       - uses: actions/checkout@v4
 
@@ -82,7 +80,7 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.VERSION }}
+          tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
 
   helm-package-publish:
