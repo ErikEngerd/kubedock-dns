@@ -1,8 +1,8 @@
 
 # Motivation
 
-This project is prototype for showing how it is possible to simulate a docker network
-concept in a single kubernetes namespace.
+This project provides a docker network concept in a single kubernetes namespace. It's main
+use is when using testcontainers to run on kubernetes with the help of [kubedock](https://github.com/joyrex2001/kubedock)
 
 In docker, containers are attached to a network and containers attached to the same
 network can contact each other using their hostname. It is possible to run different
@@ -83,12 +83,20 @@ to be done is instrument kubedock to add the required annotations and label (and
 kubedock-dns) so that the mechanism can be used. This solution came out of discussions with the
 kubedock maintainer. The next step is to prototype the required changes in kubedock to make it work.
 
-# Usage
+# Using published releases
 
-Currently this project does not have any deliveries but those will come soon in the form of docker 
-images and a helm chart. 
+The first step is installing kubedock-dns in the namespace used by kubedock. 
 
-For testing locally, the steps are described below. 
+```
+helm repo add erikengerd https://erikengerd.github.io/kubedock-dns/charts
+helm upgrade --install kubedock-dns erikengerd/kubedock-dns 
+```
+
+Next step is to make sure that kubedock is started with the `--disable-services` option. 
+By doing that it becomes possible to run multiple concurrent testcontainer jobs in the same 
+namespace. 
+
+# Testing locally
 
 ## Prerequisites
 
