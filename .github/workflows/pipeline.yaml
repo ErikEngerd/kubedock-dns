@@ -104,8 +104,9 @@ jobs:
 
       - name: Package Helm chart
         run: |
-          yq eval '.version = strenv(VERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
-          yq eval '.appVersion = strenv(VERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
+          HELMVERSION=0.0.0-$VERSION
+          yq eval '.version = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
+          yq eval '.appVersion = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           helm package ${{ env.HELM_CHART_PATH }} --destination .chart-archive
 
       - name: Check out GitHub Pages branch
