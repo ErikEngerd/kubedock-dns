@@ -9,6 +9,6 @@ logLevel: 3
 label: kubedock
 
 # container contiguration
-registry: ghcr.io/erikengerd
+registry: localhost:5000
 # container version to use.
-version:
+version: 1.0.0
