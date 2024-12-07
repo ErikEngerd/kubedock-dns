@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "replicas": {
+      "type": "integer",
+      "description": "Number of replicas to deploy",
+      "default": 1,
+      "minimum": 1
+    },
+    "logLevel": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "label": {
+      "type": "string"
+    },
+    "registry": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "replicas",
+    "logLevel",
+    "label",
+    "registry",
+    "version"
+  ],
+  "additionalProperties": false
+}

@@ -1,7 +1,6 @@
 
 
 
-# TODO make default 2
 replicas: 1
 logLevel: 3
 
@@ -12,3 +11,5 @@ label: kubedock
 registry: localhost:5000
 # container version to use.
 version: 1.0.0
+
+imagePullSecrets: []

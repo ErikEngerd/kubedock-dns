@@ -18,6 +18,13 @@ spec:
       labels:
         app: dns-server
     spec:
+      {{- if not (empty .Values.imagePullSecrets) }}
+      imagePullSecrets:
+        {{- range $secret := .Values.imagePullSecrets }}
+        - name: {{ $secret }}
+        {{- end }}
+      {{- end }}
+
       serviceAccountName: kubedock-dns-server
       containers:
       - image: {{ .Values.registry }}/kubedock-dns:{{ default .Chart.Version .Values.version }}

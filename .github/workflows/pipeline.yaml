@@ -116,6 +116,8 @@ jobs:
           LIBRARY="$( echo "$LIBRARY" | tr '[:upper:]' '[:lower:]' )"
           yq eval '.registry = strenv(LIBRARY)' -i ${{ env.HELM_CHART_PATH }}/values.yaml
           yq eval '.version = strenv(VERSION)' -i ${{ env.HELM_CHART_PATH }}/values.yaml
+          yq eval '.replicas = 2' -i ${{ env.HELM_CHART_PATH }}/values.yaml
+
           helm package ${{ env.HELM_CHART_PATH }} --destination .chart-archive
 
       - name: Check out GitHub Pages branch
