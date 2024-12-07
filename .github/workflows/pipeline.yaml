@@ -1,10 +1,11 @@
 name: Go CI/CD Pipeline
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -12,6 +13,7 @@ env:
   HELM_CHART_PATH: ./helm/dns
   GO_VERSION: '1.23'
   HELM_REPO_SUBDIR: charts  # Subdirectory for Helm charts in gh-pages
+  VERSION: ${{ inputs.version }}
 
 jobs:
   build-and-test:
@@ -70,7 +72,7 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
 
   helm-package-publish:
@@ -94,6 +96,8 @@ jobs:
 
       - name: Package Helm chart
         run: |
+          yq eval '.version = strenv(VERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
+          yq eval '.appVersion = strenv(VERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           helm package ${{ env.HELM_CHART_PATH }} --destination .chart-archive
 
       - name: Check out GitHub Pages branch

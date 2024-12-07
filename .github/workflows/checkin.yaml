@@ -1,0 +1,12 @@
+name: Checkin pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  call-pipeline:
+    uses: ./.github/workflows/pipeline.yaml
+    with:
+      version: ${{ github.ref_name }}-latest
