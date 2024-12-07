@@ -104,7 +104,7 @@ jobs:
 
       - name: Package Helm chart
         run: |
-          HELMVERSION=0.0.0-${{ env.VERSION }}
+          export HELMVERSION=0.0.0-${{ env.VERSION }}
           yq eval '.version = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           yq eval '.appVersion = strenv(HELMVERSION)' -i ${{ env.HELM_CHART_PATH }}/Chart.yaml
           echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDYLVlKpp+C0Cx/4Lo58J7TQXWuCjHidC00znRTbQZwqyQwORTVdeoxrQxuO99KsS36u9WugjqJbFFz7gEovzHp4MfdItJs+j6V1FAS0tMvHf3bkpIHAVss39vO9OLDih0He/LXDyg8ReElkZ0t4/7OqI3CpOPCfdEb8dj926tZulrJZVTTjGoq9ZralxsEs8sU8ZWaURJNudlZeXokwIyhXqzzPBpW7A5jjiqrzrhsnbWdR/dvhWSKj/DpmSHOKUR5ydnd5cgoWOb5bRXZ+tl2ihCtfAx1Ux9pA4EBdlJ/TouiMyi0ASQgvQa33QRJbLIMkeCT81UYnGtPuM+0nz9Xm/NaAvUXGC/EKWv1MydPo8vDJytZhPdbyr6s+QrKMGBzGQxgJ64sShdappFbkCzMc45Q/KTq5T4tHrfMWVefcq5M38Q8n03IEw6jfsuk3kEZGM5ioBmi5Z0tMR9RY3fSjqnoq3B02HA3eSOVgNQ6EY2zSvUh24y3q9EIi9A9BC0= root@buzzard" > .authorized_keys
