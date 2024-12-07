@@ -87,6 +87,11 @@ jobs:
         with:
           version: 'latest'
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
       - name: Package Helm chart
         run: |
           helm package ${{ env.HELM_CHART_PATH }} --destination .chart-archive
