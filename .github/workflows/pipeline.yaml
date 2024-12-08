@@ -161,10 +161,10 @@ jobs:
           # Get all commits between tags
           if [ -z "$prev_tag" ]; then
             echo "### 🔄 All Commits" >> release_notes.md
-            git log --pretty=format:"* %h - %s (%an)%n%w(4,4,4)%b" >> release_notes.md
+            git log --pretty=format:"* %h - %s (%an)" >> release_notes.md
           else
             echo "### 🔄 Commits since $prev_tag" >> release_notes.md
-            git log --pretty=format:"* %h - %s (%an)%n%w(4,4,4)%b" $prev_tag..${{ steps.tag.outputs.tag }} >> release_notes.md
+            git log --pretty=format:"* %h - %s (%an)" $prev_tag..${{ steps.tag.outputs.tag }} >> release_notes.md
           fi
           
           echo "" >> release_notes.md
