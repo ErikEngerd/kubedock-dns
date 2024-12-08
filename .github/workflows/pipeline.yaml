@@ -57,6 +57,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - id: lower-repo
+        run: |
+          echo "repository=${GITHUB_REPOSITORY@L}" >> $GITHUB_OUTPUT
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -84,8 +88,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags:  ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
+          cache-from: type=registry,ref=ghcr.io/${{ steps.lower-repo.outputs.repository }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ steps.lower-repo.outputs.repository }}:buildcache,mode=max
 
   helm-package-publish:
     needs: docker-build-push
