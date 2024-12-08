@@ -19,7 +19,7 @@ possibility of running concurrent tests that use the same hostnames for containe
 In kubedock this is currently solved by 'locking' the namespaces so that tests cannot
 be run concurrently.
 
-This project is a prototype showing how to fix this problem, allowing multiple
+This project fixes this problem, allowing multiple
 concurrent tests to be run in the same namespace without conflict and without the
 need for locking the namespace.
 
@@ -46,7 +46,9 @@ spec:
 
 The above pod has one hostname 'db' and belongs to the network named 'test1'. When running multiple
 pods annotated this way, one gets a view of the network. E.g. there can be a network 'test1' with hosts
-'db' and 'service', and another network 'test2' with hosts 'db' and 'service'. The second part in this
+'db' and 'service', and another network 'test2' with hosts 'db' and 'service'. 
+
+The second part in this
 setup is that DNS lookups of 'db' from 'service' in network 'test1' should resolve to the 'db' pod in
 network 'test1', and similarly the lookups of 'db' by 'service' in network 'test2' should resolve to
 the 'db' pod in network 'test2'. See for instance the examples in the test directory.
@@ -57,7 +59,7 @@ This behavior can be achieved as follows:
   * a mapping of hostnames to pod IP in the network and vice versa
 * this datastructure is resolved by a DNS server that looks at the source IP of the DNS
   lookup, which identifies the network. Then within the network, the IP can be looked up based on
-  hostname (A record), of viceversa, the hostname looked up by IP (PTR record). This DNS server
+  hostname (A record), or viceversa, the hostname looked up by IP (PTR record). This DNS server
   is colocated with the above watcher in the same component. When a record cannot be resolved,
   the DNS server delegates to the upstream DNS server which is the standard kubernetes DNS server.
 * on deployment of pods, a pod is mutated using the dnsPolicy and dnsConfig fields to use the
@@ -81,7 +83,7 @@ for detecting problems.
 The advantage of this model is that it is relatively ueasy to integrate with kubedock. All that needs
 to be done is instrument kubedock to add the required annotations and label (and/or modify or configure
 kubedock-dns) so that the mechanism can be used. This solution came out of discussions with the
-kubedock maintainer. The next step is to prototype the required changes in kubedock to make it work.
+kubedock maintainer.
 
 # Installation from the helm repo
 
@@ -108,7 +110,7 @@ helm upgrade --install kubedock-dns helm/kubedock-dns
 
 # Kubedock setup
 
-Next step is to make sure that kubedock is started with the `--disable-services` option. 
+Kubedock must be started with the `--disable-services` option. 
 By doing that it becomes possible to run multiple concurrent testcontainer jobs in the same 
 namespace. 
 
