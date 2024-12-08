@@ -9,5 +9,7 @@ services:
       args:
         BASE_IMAGE: $REGISTRY/kubedock-dns-base:1.0.0
     ports:
-      - 8000:8000
+      - 1053:1053/udp
+      - 8443:8443
+   
 
