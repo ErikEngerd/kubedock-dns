@@ -92,7 +92,7 @@ helm repo add kubedock-dns https://erikengerd.github.io/kubedock-dns/charts
 helm upgrade --install kubedock-dns kubedock-dns/kubedock-dns 
 ```
 
-# Installation from a locl checkout 
+# Installation from a local checkout 
 
 Set the `REGISTRY environment variable to `localhost:5000 and `
 build and push the images.
