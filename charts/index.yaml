@@ -3,7 +3,7 @@ entries:
   kubedock-dns:
   - apiVersion: v2
     appVersion: 0.0.5
-    created: "2024-12-08T14:40:51.528568434Z"
+    created: "2024-12-08T14:44:59.629256005Z"
     description: Kubedock DNS
     digest: 4542f4ba585e6278414002a7034088f07a78f3c33c6edacb38ef11542f677e10
     name: kubedock-dns
@@ -13,7 +13,7 @@ entries:
     version: 0.0.5
   - apiVersion: v2
     appVersion: 0.0.4
-    created: "2024-12-08T14:40:51.5283672Z"
+    created: "2024-12-08T14:44:59.629039481Z"
     description: Kubedock DNS
     digest: f1c8dc2190eb35adae4acc4a8cd0ff0fc7a3e3c6381929e5754496d645610065
     name: kubedock-dns
@@ -23,7 +23,7 @@ entries:
     version: 0.0.4
   - apiVersion: v2
     appVersion: 0.0.3
-    created: "2024-12-08T14:40:51.528150096Z"
+    created: "2024-12-08T14:44:59.628833677Z"
     description: Kubedock DNS
     digest: a7bb0da9f3a5622a18caaafbdbcac3f8540e2a99d2f210b3700e925bdaecf5af
     name: kubedock-dns
@@ -33,7 +33,7 @@ entries:
     version: 0.0.3
   - apiVersion: v2
     appVersion: 0.0.2
-    created: "2024-12-08T14:40:51.527923865Z"
+    created: "2024-12-08T14:44:59.628600843Z"
     description: Kubedock DNS
     digest: ddae0b00fedde302dd51dd115169661e82e5676e10e4c27ac62f269117766600
     name: kubedock-dns
@@ -43,7 +43,7 @@ entries:
     version: 0.0.2
   - apiVersion: v2
     appVersion: 0.0.0-main
-    created: "2024-12-08T14:40:51.52770622Z"
+    created: "2024-12-08T14:44:59.628383137Z"
     description: Kubedock DNS
     digest: 4b24bf7622e9831b5e09d8d5f289b2f88a262f9c34af54230fe370db52fc5f63
     name: kubedock-dns
@@ -53,12 +53,12 @@ entries:
     version: 0.0.0-main
   - apiVersion: v2
     appVersion: 0.0.0-ghactions
-    created: "2024-12-08T14:40:51.527467776Z"
+    created: "2024-12-08T14:44:59.628148931Z"
     description: Kubedock DNS
-    digest: 3daee7b1d889f35cee8c718502a196c01bf88ab8ba7d0c1bd4c87735de40d05f
+    digest: 275f832b78fe3f9c030078828179cabda253093ddeac570cd72837acbd9e929d
     name: kubedock-dns
     type: application
     urls:
     - https://ErikEngerd.github.io/kubedock-dns/charts/kubedock-dns-0.0.0-ghactions.tgz
     version: 0.0.0-ghactions
-generated: "2024-12-08T14:40:51.527089843Z"
+generated: "2024-12-08T14:44:59.627741992Z"
