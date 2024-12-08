@@ -83,14 +83,30 @@ to be done is instrument kubedock to add the required annotations and label (and
 kubedock-dns) so that the mechanism can be used. This solution came out of discussions with the
 kubedock maintainer. The next step is to prototype the required changes in kubedock to make it work.
 
-# Using published releases
+# Installation from the helm repo
 
 The first step is installing kubedock-dns in the namespace used by kubedock. 
 
 ```
-helm repo add erikengerd https://erikengerd.github.io/kubedock-dns/charts
-helm upgrade --install kubedock-dns erikengerd/kubedock-dns 
+helm repo add kubedock-dns https://erikengerd.github.io/kubedock-dns/charts
+helm upgrade --install kubedock-dns kubedock-dns/kubedock-dns 
 ```
+
+# Installation from a locl checkout 
+
+Set the `REGISTRY environment variable to `localhost:5000 and `
+build and push the images.
+```
+make push
+```
+
+Next, install the helm chart: 
+```
+helm upgrade --install kubedock-dns helm/kubedock-dns 
+```
+
+
+# Kubedock setup
 
 Next step is to make sure that kubedock is started with the `--disable-services` option. 
 By doing that it becomes possible to run multiple concurrent testcontainer jobs in the same 
@@ -117,18 +133,6 @@ mirrors:
 
 The above setup makes sure the k3d can pull images from localhost:5000. 
 
-## Building
-
-Run the following to build and push the images. 
-```
-make push
-```
-
-## Installing kubedock-dns
-
-```
-helm upgrade --install kubedock-dns helm/dns 
-```
 
 ## Try out the examples
 
