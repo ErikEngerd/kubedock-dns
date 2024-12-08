@@ -138,6 +138,7 @@ jobs:
           git push
 
   create-release:
+    needs: helm-package-publish
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
