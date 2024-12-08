@@ -8,27 +8,32 @@ import (
 	"k8s.io/klog/v2"
 	"os"
 	"time"
+	"wamblee.org/kubedock/dns/internal/admissioncontroller"
+	"wamblee.org/kubedock/dns/internal/config"
+	"wamblee.org/kubedock/dns/internal/dns"
+	"wamblee.org/kubedock/dns/internal/model"
 	"wamblee.org/kubedock/dns/internal/support"
+	"wamblee.org/kubedock/dns/internal/watcher"
 )
 
-func createDns(config Config) *KubeDockDns {
+func createDns(config config.Config) *dns.KubeDockDns {
 	clientConfig := support.GetClientConfig()
 	clientConfig.Timeout = int(config.DnsTimeout.Seconds())
 	clientConfig.Attempts = config.DnsRetries
 
-	upstreamDnsServer := NewExternalDNSServer(clientConfig.Servers[0] + ":53")
+	upstreamDnsServer := dns.NewExternalDNSServer(clientConfig.Servers[0] + ":53")
 	klog.Infof("Upstream DNS server %s", upstreamDnsServer)
-	kubedocDns := NewKubeDockDns(upstreamDnsServer, ":1053", clientConfig.Search[0],
+	kubedocDns := dns.NewKubeDockDns(upstreamDnsServer, ":1053", clientConfig.Search[0],
 		config.InternalDomains)
 	return kubedocDns
 }
 
 type DnsWatcherIntegration struct {
-	pods *Pods
-	dns  *KubeDockDns
+	pods *model.Pods
+	dns  *dns.KubeDockDns
 }
 
-func (integrator *DnsWatcherIntegration) AddOrUpdate(pod *Pod) {
+func (integrator *DnsWatcherIntegration) AddOrUpdate(pod *model.Pod) {
 	klog.V(2).Infof("%v/%v: Pod added or updated", pod.Namespace, pod.Name)
 	if integrator.pods.AddOrUpdate(pod) {
 		integrator.updateDns()
@@ -52,7 +57,7 @@ func (integrator *DnsWatcherIntegration) updateDns() {
 	}
 }
 
-func execute(cmd *cobra.Command, args []string, config Config) error {
+func execute(cmd *cobra.Command, args []string, config config.Config) error {
 
 	klog.Info("Starting DNS server and mutator")
 	klog.V(2).Info("Verbose logging enabled")
@@ -79,25 +84,25 @@ func execute(cmd *cobra.Command, args []string, config Config) error {
 	dns := createDns(config)
 	sourceIp := os.Getenv("KUBEDOCK_DNS_SOURCE_IP")
 	if sourceIp != "" {
-		dns.OverrideSourceIP(IPAddress(sourceIp))
+		dns.OverrideSourceIP(model.IPAddress(sourceIp))
 	}
 	go func() {
 		dns.Serve()
 	}()
 
 	// pod administration
-	pods := NewPods()
+	pods := model.NewPods()
 	dnsWatcherIntegration := &DnsWatcherIntegration{
 		pods: pods,
 		dns:  dns,
 	}
 
 	// Watching Pods
-	go WatchPods(clientset, namespace, dnsWatcherIntegration, config.PodConfig)
+	go watcher.WatchPods(clientset, namespace, dnsWatcherIntegration, config.PodConfig)
 
 	// Admission controller
 
-	if err := runAdmisstionController(ctx, pods, clientset, namespace, "dns-server",
+	if err := admissioncontroller.RunAdmisstionController(ctx, pods, clientset, namespace, "dns-server",
 		config.CrtFile, config.KeyFile, config.PodConfig); err != nil {
 		return fmt.Errorf("Could not start admission controler: %+v", err)
 	}
@@ -108,7 +113,7 @@ func main() {
 	klogFlags := goflags.NewFlagSet("", goflags.PanicOnError)
 	klog.InitFlags(klogFlags)
 
-	config := Config{}
+	config := config.Config{}
 	cmd := &cobra.Command{
 		Use:   "kubedock-dns",
 		Short: "Run a DNS server and mutator for test containers",

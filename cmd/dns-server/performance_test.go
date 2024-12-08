@@ -6,23 +6,24 @@ import (
 	"k8s.io/klog/v2"
 	"strconv"
 	"testing"
+	"wamblee.org/kubedock/dns/internal/model"
 )
 
 func BenchmarkCreateNetworks(b *testing.B) {
 	nPodsPerTest := 3
 	nTests := 300
 
-	pods := NewPods()
+	pods := model.NewPods()
 
 	for i := range nTests {
 		for j := range nPodsPerTest {
 			ipod := i*nPodsPerTest + j
-			pod, err := NewPod(
-				IPAddress(strconv.Itoa(ipod)),
+			pod, err := model.NewPod(
+				model.IPAddress(strconv.Itoa(ipod)),
 				"kubedock",
 				fmt.Sprintf("pod%d", ipod),
-				[]Hostname{Hostname(fmt.Sprintf("host%d", j))},
-				[]NetworkId{NetworkId(fmt.Sprintf("network%d", i))},
+				[]model.Hostname{model.Hostname(fmt.Sprintf("host%d", j))},
+				[]model.NetworkId{model.NetworkId(fmt.Sprintf("network%d", i))},
 			)
 			assert.Nil(b, err)
 			pods.AddOrUpdate(pod)

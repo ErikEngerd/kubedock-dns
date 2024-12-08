@@ -1,4 +1,4 @@
-package main
+package admissioncontroller
 
 import (
 	"context"
@@ -17,23 +17,25 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	config2 "wamblee.org/kubedock/dns/internal/config"
+	"wamblee.org/kubedock/dns/internal/model"
 )
 
 type MutatorTestSuite struct {
 	suite.Suite
 
-	config PodConfig
+	config config2.PodConfig
 
 	ctx          context.Context
 	dnsip        string
-	pods         *Pods
+	pods         *model.Pods
 	mutator      *DnsMutator
 	clientConfig dns.ClientConfig
 	stdlabels    map[string]string
 }
 
 func (s *MutatorTestSuite) SetupSuite() {
-	s.config = PodConfig{
+	s.config = config2.PodConfig{
 		LabelName:       "kubedock",
 		HostAliasPrefix: "kubedock.host/",
 		NetworkIdPrefix: "kubedock.network/",
@@ -43,7 +45,7 @@ func (s *MutatorTestSuite) SetupSuite() {
 func (s *MutatorTestSuite) SetupTest() {
 	s.ctx = context.Background()
 	s.dnsip = "10.11.12.13"
-	s.pods = NewPods()
+	s.pods = model.NewPods()
 	s.clientConfig = dns.ClientConfig{
 		Servers:  []string{"11.12.13.14"},
 		Search:   []string{"a.b.c", "b.c", "c"},
@@ -70,7 +72,7 @@ func (s *MutatorTestSuite) createPod(namespace string, name string,
 	labels map[string]string,
 	ip string) v1.Pod {
 	if ip == "" {
-		ip = UNKNOWN_IP_PREFIX + strconv.Itoa(rand.Int())
+		ip = model.UNKNOWN_IP_PREFIX + strconv.Itoa(rand.Int())
 	}
 	pod := v1.Pod{
 		TypeMeta: metav1.TypeMeta{
@@ -201,8 +203,8 @@ func (s *MutatorTestSuite) Test_SingleHostAndNetwork() {
 
 	pod := s.pods.Get("kubedock", "db")
 	s.NotNil(pod)
-	s.Equal([]Hostname{"db"}, pod.HostAliases)
-	s.Equal([]NetworkId{"test"}, pod.Networks)
+	s.Equal([]model.Hostname{"db"}, pod.HostAliases)
+	s.Equal([]model.NetworkId{"test"}, pod.Networks)
 }
 
 func (s *MutatorTestSuite) Test_DuplicateHost() {
@@ -325,8 +327,8 @@ func (s *MutatorTestSuite) Test_UpdateAllowedWhenNetworkNotModified() {
 
 	pod := s.pods.Get("kubedock", "db")
 	s.NotNil(pod)
-	s.Equal([]Hostname{"db"}, pod.HostAliases)
-	s.Equal([]NetworkId{"test"}, pod.Networks)
+	s.Equal([]model.Hostname{"db"}, pod.HostAliases)
+	s.Equal([]model.NetworkId{"test"}, pod.Networks)
 }
 
 func (s *MutatorTestSuite) Test_UpdateDeniedWhenHostModified() {

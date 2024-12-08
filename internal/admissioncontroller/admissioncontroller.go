@@ -1,11 +1,13 @@
-package main
+package admissioncontroller
 
 import (
 	"context"
 	"fmt"
 	"github.com/miekg/dns"
 	"gomodules.xyz/jsonpatch/v2"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
@@ -14,10 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"strconv"
 	"time"
+	"wamblee.org/kubedock/dns/internal/config"
+	"wamblee.org/kubedock/dns/internal/model"
 	"wamblee.org/kubedock/dns/internal/support"
-
-	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"encoding/json"
 	controllerlog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,8 +30,8 @@ const (
 )
 
 type DnsMutator struct {
-	podConfig    PodConfig
-	pods         *Pods
+	podConfig    config.PodConfig
+	pods         *model.Pods
 	dnsServiceIP string
 	clientConfig *dns.ClientConfig
 }
@@ -41,8 +42,8 @@ type PatchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-func NewDnsMutator(pods *Pods, dnsServiceIP string, clientConfig *dns.ClientConfig,
-	podConfig PodConfig) *DnsMutator {
+func NewDnsMutator(pods *model.Pods, dnsServiceIP string, clientConfig *dns.ClientConfig,
+	podConfig config.PodConfig) *DnsMutator {
 	mutator := DnsMutator{
 		podConfig:    podConfig,
 		pods:         pods,
@@ -76,15 +77,15 @@ func (mutator *DnsMutator) validateK8sPod(k8spod corev1.Pod, operation admission
 	// later when the IP becomes known during deployment.
 	podIpOverride := k8spod.Status.PodIP
 	if podIpOverride == "" {
-		podIpOverride = UNKNOWN_IP_PREFIX + strconv.Itoa(time.Now().Nanosecond()) +
+		podIpOverride = model.UNKNOWN_IP_PREFIX + strconv.Itoa(time.Now().Nanosecond()) +
 			strconv.Itoa(rand.Int())
 	}
-	pod, err := getPodEssentials(&k8spod, podIpOverride, mutator.podConfig)
+	pod, err := model.GetPodEssentials(&k8spod, podIpOverride, mutator.podConfig)
 	if err != nil {
 		klog.Infof("%v", err)
 		return err
 	}
-	var networks *Networks
+	var networks *model.Networks
 	networks, err = mutator.validatePod(operation, pod)
 	if err != nil {
 		klog.Warningf("%s/%s invalid", pod.Namespace, pod.Name)
@@ -96,7 +97,7 @@ func (mutator *DnsMutator) validateK8sPod(k8spod corev1.Pod, operation admission
 	return nil
 }
 
-func (mutator *DnsMutator) validatePod(operation admissionv1.Operation, pod *Pod) (*Networks, error) {
+func (mutator *DnsMutator) validatePod(operation admissionv1.Operation, pod *model.Pod) (*model.Networks, error) {
 	if operation == admissionv1.Update {
 		oldpod := mutator.pods.Get(pod.Namespace, pod.Name)
 		if !oldpod.Equal(pod) {
@@ -191,14 +192,14 @@ func (mutator *DnsMutator) rejectPod(request admission.Request,
 	return response
 }
 
-func runAdmisstionController(ctx context.Context,
-	pods *Pods,
+func RunAdmisstionController(ctx context.Context,
+	pods *model.Pods,
 	clientset *kubernetes.Clientset,
 	namespace string,
 	dnsServiceName string,
 	crtFile string,
 	keyFile string,
-	podConfig PodConfig) error {
+	podConfig config.PodConfig) error {
 
 	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, dnsServiceName, v1.GetOptions{})
 	if err != nil {
