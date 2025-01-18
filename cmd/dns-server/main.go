@@ -102,9 +102,9 @@ func execute(cmd *cobra.Command, args []string, config config.Config) error {
 
 	// Admission controller
 
-	if err := admissioncontroller.RunAdmisstionController(ctx, pods, clientset, namespace, "dns-server",
+	if err := admissioncontroller.RunAdmisstionController(ctx, pods, clientset, namespace, config.ServiceName,
 		config.CrtFile, config.KeyFile, config.PodConfig); err != nil {
-		return fmt.Errorf("Could not start admission controler: %+v", err)
+		return fmt.Errorf("Could not start admission controller: %+v", err)
 	}
 	return nil
 }
@@ -129,6 +129,8 @@ network`,
 		},
 	}
 
+	cmd.PersistentFlags().StringVar(&config.ServiceName, "dns-service-name",
+		"kubedock-dns-server", "Service name of the k8s DNS service that is configured for kubedock-dns")
 	cmd.PersistentFlags().StringVar(&config.PodConfig.HostAliasPrefix, "host-alias-prefix",
 		"kubedock.hostalias/", "annotation prefix for hosttnames. ")
 	cmd.PersistentFlags().StringVar(&config.PodConfig.NetworkIdPrefix, "network-prefix",
