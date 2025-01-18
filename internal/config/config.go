@@ -9,6 +9,7 @@ type PodConfig struct {
 }
 
 type Config struct {
+	ServiceName     string
 	PodConfig       PodConfig
 	CrtFile         string
 	KeyFile         string

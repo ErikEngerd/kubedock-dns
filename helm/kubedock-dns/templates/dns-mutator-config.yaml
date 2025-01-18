@@ -29,7 +29,7 @@ metadata:
   # TDDO: add namespace to the name.
   name: {{ .namespace }}-dns-mutator-config
   labels:
-    component: dns-mutator
+    {{- include "labels" . | nindent 4 }}
 webhooks:
   - name: dns-mutator.kubedock.org
     namespaceSelector:
@@ -44,7 +44,7 @@ webhooks:
     failurePolicy: Fail
     clientConfig:
       service:
-        name: dns-server
+        name: {{ .name }}-server
         port: 8443
         namespace: {{ .namespace }}
         path: /mutate/pods
@@ -60,34 +60,46 @@ webhooks:
           - UPDATE
 {{- end }}
 
-{{- $secretName := "dns-mutator-cert" }}
+
+
+{{- $secretName := (printf "%s-mutator-cert" .Release.Name) }}
 {{- $secret := lookup "v1" "Secret" .Release.Namespace $secretName }}
 
-{{- if $secret }}
+{{ $ca := dict }}
+{{ $cert := dict }}
+{{ $cacert := dict }}
 
-  # Secret {{ $secretName }} is re-used
-  {{ $cacert := index $secret.data "ca.crt" | b64dec }}
-  {{- template "dns-mutator-config" (dict "namespace" .Release.Namespace "cacert" $cacert "label" .Values.label) }}
-
+{{- if not $secret }}
+  {{- $ca = genCA .Release.Name 10000 }}
+  {{- $cert = genSignedCert "dnsmutator" nil (
+        list "dns-mutator" (printf "%s-server.%s" .Release.Name .Release.Namespace)
+                           (printf "%s-server.%s.svc" .Release.Name .Release.Namespace)
+      ) 365 $ca }}
 {{- else }}
-
-  # Secret {{ $secretName }} created
-  {{- $ca:= genCA "kubedock-dns" 10000 }}
-  {{- $cacert := $ca.Cert }}
-  {{- $cert := genSignedCert "dnsmutator" nil (list "dns-mutator" (printf "dns-server.%s" .Release.Namespace) (printf "dns-server.%s.svc" .Release.Namespace)) 365 $ca }}
-  apiVersion: v1
-  kind: Secret
-  metadata:
-    annotations:
-      helm.sh/hook: pre-install,pre-upgrade,pre-rollback
-      helm.sh/resource-policy: keep
-    name: {{ $secretName }}
-    namespace: {{.Release.Namespace}}
-  data:
-    ca.crt: "{{ $ca.Cert | b64enc }}"
-    tls.crt: "{{ $cert.Cert | b64enc }}"
-    tls.key: "{{ $cert.Key | b64enc }}"
----
-  {{- template "dns-mutator-config" (dict "namespace" .Release.Namespace "cacert" $cacert "label" .Values.label) }}
-
+  # Secret {{ $secretName }} is re-used so that there is no downtime during upgrades.
+  {{ $ca = dict "Cert" (index $secret.data "ca.crt" | b64dec) }}
+  {{ $cert = dict "Cert" (index $secret.data "tls.crt" | b64dec)
+                  "Key" (index $secret.data "tls.key" | b64dec)
+  }}
 {{- end }}
+
+---
+# Secret {{ $secretName }} created
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  namespace: {{.Release.Namespace}}
+  labels:
+    {{- include "labels" . | nindent 4 }}
+data:
+  ca.crt: "{{ $ca.Cert | b64enc }}"
+  tls.crt: "{{ $cert.Cert | b64enc }}"
+  tls.key: "{{ $cert.Key | b64enc }}"
+---
+{{- template "dns-mutator-config" (
+  dict "name" .Release.Name
+       "namespace" .Release.Namespace
+       "cacert" $ca.Cert
+       "label" .Values.label) }}
+

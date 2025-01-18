@@ -203,7 +203,7 @@ func RunAdmisstionController(ctx context.Context,
 
 	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, dnsServiceName, v1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("Could not get dns service IP for service '%s'", dnsServiceName)
+		return fmt.Errorf("Could not get dns service IP for service '%s': %v", dnsServiceName, err)
 	}
 	dnsServiceIP := svc.Spec.ClusterIP
 	klog.Infof("DNS service IP is %s", dnsServiceIP)

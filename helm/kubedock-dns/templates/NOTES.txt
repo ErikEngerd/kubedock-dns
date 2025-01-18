@@ -1,1 +1,12 @@
 
+
+{{- if not (eq .Release.Name "dns") }}
+
+{{- $oldsecret := lookup "v1" "Secret" .Release.Namespace "dns-mutator-cert"}}
+{{- if $oldsecret }}
+--------------------------------------------------------------
+It looks like an old secret dns-mutator-cert iw present from
+an older release. This secret can be removed.
+--------------------------------------------------------------
+{{- end }}
+{{- end }}
