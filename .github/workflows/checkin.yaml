@@ -31,7 +31,6 @@ jobs:
             BRANCH="${{ github.ref_name }}"
             VERSION="${LATEST_TAG#v}+${BRANCH}"
           fi
-          VERSION="${{ github.ref_name }}" 
           echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
           
 
