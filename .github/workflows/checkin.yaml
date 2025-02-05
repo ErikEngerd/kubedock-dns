@@ -21,6 +21,8 @@ jobs:
       - id: set-version
         name: set-version
         run: |
+          echo "Listing all tags"
+          git tag -l
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             # Case 1: Tag push - use the tag name without 'v' prefix
             VERSION="${{ github.ref_name }}"
