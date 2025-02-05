@@ -25,6 +25,7 @@ jobs:
         name: set-version
         run: |
           echo "Listing all tags"
+          git fetch --all
           git tag -l
           echo 
           echo "Listiong all files"
