@@ -28,6 +28,9 @@ jobs:
           git fetch --all
           git tag -l
           echo 
+          echo Last tag
+          git describe --tags --abbrev=0
+          echo $? 
           echo "Listiong all files"
           find . -type f 
           echo 
