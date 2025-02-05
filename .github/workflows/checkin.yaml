@@ -18,6 +18,8 @@ jobs:
     outputs:
       version: ${{ steps.set-version.outputs.version }}
     steps:
+      - uses: actions/checkout@v4
+
       - id: set-version
         name: set-version
         run: |
