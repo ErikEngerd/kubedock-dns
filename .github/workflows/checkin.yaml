@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-tags: 'true'
+          fetch-tags: true
       - id: set-version
         name: set-version
         run: |
