@@ -20,7 +20,7 @@
     },
     "version": {
       "type": "string",
-      "pattern": "^\\d+\\.\\d+\\.\\d+([+].*)?$"
+      "pattern": "^\\d+\\.\\d+\\.\\d-([+].*)?$"
     },
     "imagePullSecrets": {
       "type": "array",
