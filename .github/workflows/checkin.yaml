@@ -18,10 +18,24 @@ jobs:
     outputs:
       version: ${{ steps.set-version.outputs.version }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
       - id: set-version
         name: set-version
         run: |
-          VERSION="${{ github.ref_name }}" 
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # Case 1: Tag push - use the tag name without 'v' prefix
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          else
+            # Case 2: Branch push - get latest tag + branch name
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            BRANCH="${{ github.ref_name }}"
+            VERSION="${LATEST_TAG#v}-${BRANCH}"
+          fi
+          echo "Using version ${VERSION#v}" 
           echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
           
 
