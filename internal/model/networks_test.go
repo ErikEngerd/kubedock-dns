@@ -854,7 +854,7 @@ func (s *NetworkTestSuite) Test_NotReadyPod() {
 			{
 				ip:       "a",
 				hosts:    []string{"db1"},
-				networks: []string{"test1", "test1"},
+				networks: []string{"test1"},
 				updated:  true,
 				ready:    false,
 			},
@@ -872,6 +872,53 @@ func (s *NetworkTestSuite) Test_NotReadyPod() {
 				sourceIp: "a",
 				ip:       "a",
 				hosts:    []string{},
+			},
+		},
+	}
+	s.runTest(&test)
+}
+
+func (s *NetworkTestSuite) Test_TerminatingAndReadyPod() {
+	test := NetworkTest{
+		pods: []PodInfo{
+			{
+				ip:       "a",
+				hosts:    []string{"db1"},
+				networks: []string{"test1"},
+				updated:  true,
+				ready:    false,
+			},
+			{
+				ip:       "b",
+				hosts:    []string{"db1"},
+				networks: []string{"test1"},
+				updated:  true,
+				ready:    true,
+			},
+		},
+		errorsExpected: false,
+		lookups: []Lookup{
+			{
+				sourceIp: "a",
+				host:     "db1",
+				ips:      []string{"b"},
+			},
+			{
+				sourceIp: "b",
+				host:     "db1",
+				ips:      []string{"b"},
+			},
+		},
+		reverseLookups: []ReverseLookup{
+			{
+				sourceIp: "a",
+				ip:       "a",
+				hosts:    []string{},
+			},
+			{
+				sourceIp: "b",
+				ip:       "b",
+				hosts:    []string{"db1"},
 			},
 		},
 	}
