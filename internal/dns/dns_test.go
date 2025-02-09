@@ -33,7 +33,7 @@ func (dnsFunc DnsFunc) Resolve(r *dns.Msg) *dns.Msg {
 
 func (s *DNSTestSuite) newPod(ip model.IPAddress, namespace string, name string, hostAliases []model.Hostname,
 	networks []model.NetworkId) *model.Pod {
-	pod, err := model.NewPod(ip, namespace, name, hostAliases, networks)
+	pod, err := model.NewPod(ip, namespace, name, hostAliases, networks, true)
 	s.Nil(err)
 	s.NotNil(pod)
 	return pod

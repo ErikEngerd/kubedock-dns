@@ -27,17 +27,19 @@ func TestNetorkTestSuite(t *testing.T) {
 
 func (s *NetworkTestSuite) checkNetwork(network *Network) {
 	s.Greater(len(network.IPToPod), 0)
-	s.Greater(len(network.HostAliasToPod), 0)
+	s.Greater(len(network.HostAliasToPods), 0)
 	hostaliases := make(map[Hostname]bool)
 	for _, pod := range network.IPToPod {
 		s.True(slices.Contains(pod.Networks, network.Id))
 		for _, hostalias := range pod.HostAliases {
 			hostaliases[hostalias] = true
-			pod2 := network.HostAliasToPod[hostalias]
-			s.True(pod == pod2) // pointer equality
+			pod2 := network.HostAliasToPods[hostalias]
+			slices.ContainsFunc(pod2, func(p *Pod) bool {
+				return p.Name == pod.Name
+			})
 		}
 	}
-	s.Equal(len(hostaliases), len(network.HostAliasToPod))
+	s.Equal(len(hostaliases), len(network.HostAliasToPods))
 }
 
 func (s *NetworkTestSuite) checkNetworks(networks *Networks) {
@@ -75,7 +77,7 @@ func (s *NetworkTestSuite) checkNetworks(networks *Networks) {
 	}
 }
 
-func (s *NetworkTestSuite) createPod(ip string, hostAliases []string, networks []string) (*Pod, error) {
+func (s *NetworkTestSuite) createPod(ip string, hostAliases []string, networks []string, ready bool) (*Pod, error) {
 	pod, err := NewPod(
 		IPAddress(ip),
 		"kubedock",
@@ -86,6 +88,7 @@ func (s *NetworkTestSuite) createPod(ip string, hostAliases []string, networks [
 		support.MapSlice(networks, func(x string) NetworkId {
 			return NetworkId(x)
 		}),
+		ready,
 	)
 	return pod, err
 }
@@ -101,6 +104,7 @@ type PodInfo struct {
 	hosts    []string
 	networks []string
 	updated  bool
+	ready    bool
 }
 type Lookup struct {
 	sourceIp string
@@ -121,7 +125,7 @@ type NetworkTest struct {
 
 func (s *NetworkTestSuite) runTest(networkTest *NetworkTest) {
 	for _, podInfo := range networkTest.pods {
-		pod, err := s.createPod(podInfo.ip, podInfo.hosts, podInfo.networks)
+		pod, err := s.createPod(podInfo.ip, podInfo.hosts, podInfo.networks, podInfo.ready)
 		s.Require().Nil(err)
 		updated := s.pods.AddOrUpdate(pod)
 		s.Equal(podInfo.updated, updated)
@@ -168,22 +172,22 @@ func (s *NetworkTestSuite) Test_InvalidHostname() {
 	}
 
 	for _, host := range []string{"-db", " ab.de ", longname + "x"} {
-		pod, err := s.createPod("a", []string{host}, []string{"test"})
+		pod, err := s.createPod("a", []string{host}, []string{"test"}, true)
 		s.Nil(pod)
 		s.NotNil(err)
 	}
 
 	for _, host := range []string{"db.nl", "a.db.nl", "a-3.db.nl", longname} {
-		pod, err := s.createPod("a", []string{host}, []string{"test"})
+		pod, err := s.createPod("a", []string{host}, []string{"test"}, true)
 		s.NotNil(pod)
 		s.Nil(err)
 	}
 }
 
 func (s *NetworkTestSuite) Test_Pods() {
-	pod1, err := s.createPod("a", []string{"db"}, []string{"test"})
+	pod1, err := s.createPod("a", []string{"db"}, []string{"test"}, true)
 	s.Nil(err)
-	pod2, err := s.createPod("b", []string{"server"}, []string{"test"})
+	pod2, err := s.createPod("b", []string{"server"}, []string{"test"}, true)
 	s.Nil(err)
 
 	s.True(s.pods.AddOrUpdate(pod1))
@@ -220,6 +224,7 @@ func (s *NetworkTestSuite) Test_SinglePod() {
 				hosts:    []string{"db"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 		},
 		errorsExpected: false,
@@ -254,12 +259,14 @@ func (s *NetworkTestSuite) Test_SinglePodWithUnknownIP() {
 				hosts:    []string{"db"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 			{
 				ip:       "b",
 				hosts:    []string{"svc"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 		},
 		errorsExpected: false,
@@ -294,12 +301,14 @@ func (s *NetworkTestSuite) Test_TwoPodsSameNetwork() {
 				hosts:    []string{"db"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 			{
 				ip:       "b",
 				hosts:    []string{"server"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 		},
 		errorsExpected: false,
@@ -355,6 +364,68 @@ func (s *NetworkTestSuite) Test_TwoPodsSameNetwork() {
 				sourceIp: "b",
 				ip:       "b",
 				hosts:    []string{"server"},
+			},
+		},
+	}
+	s.runTest(&test)
+}
+
+func (s *NetworkTestSuite) Test_TwoPodsSameNetworkAndSameHostname() {
+	test := NetworkTest{
+		pods: []PodInfo{
+			{
+				ip:       "a",
+				hosts:    []string{"db"},
+				networks: []string{"test1"},
+				updated:  true,
+				ready:    true,
+			},
+			{
+				ip:       "b",
+				hosts:    []string{"db"},
+				networks: []string{"test1"},
+				updated:  true,
+				ready:    true,
+			},
+		},
+		errorsExpected: false,
+		lookups: []Lookup{
+			{
+				sourceIp: "a",
+				host:     "db",
+				ips:      []string{"a", "b"},
+			},
+			{
+				sourceIp: "b",
+				host:     "db",
+				ips:      []string{"a", "b"},
+			},
+			{
+				sourceIp: "unknownip",
+				host:     "db",
+				ips:      []string{},
+			},
+		},
+		reverseLookups: []ReverseLookup{
+			{
+				sourceIp: "a",
+				ip:       "a",
+				hosts:    []string{"db"},
+			},
+			{
+				sourceIp: "a",
+				ip:       "b",
+				hosts:    []string{"db"},
+			},
+			{
+				sourceIp: "b",
+				ip:       "a",
+				hosts:    []string{"db"},
+			},
+			{
+				sourceIp: "b",
+				ip:       "b",
+				hosts:    []string{"db"},
 			},
 		},
 	}
@@ -369,12 +440,14 @@ func (s *NetworkTestSuite) Test_TwoPodsDifferentNetwork() {
 				hosts:    []string{"db"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 			{
 				ip:       "b",
 				hosts:    []string{"server"},
 				networks: []string{"test2"},
 				updated:  true,
+				ready:    true,
 			},
 		},
 		errorsExpected: false,
@@ -436,7 +509,7 @@ func (s *NetworkTestSuite) Test_TwoPodsDifferentNetwork() {
 	s.runTest(&test)
 }
 
-func (s *NetworkTestSuite) Test_ThreePodsWhereSecondIsInvalid() {
+func (s *NetworkTestSuite) Test_ThreePodsWhereSecondHasDuplicateHostname() {
 	test := NetworkTest{
 		pods: []PodInfo{
 			{
@@ -444,27 +517,30 @@ func (s *NetworkTestSuite) Test_ThreePodsWhereSecondIsInvalid() {
 				hosts:    []string{"db"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
-			// duplicate host name in second pod
+			// duplicate host name in second pod which is allowed
 			{
 				ip:       "a2",
 				hosts:    []string{"db"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 			{
 				ip:       "b",
 				hosts:    []string{"server"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 		},
-		errorsExpected: true,
+		errorsExpected: false,
 		lookups: []Lookup{
 			{
 				sourceIp: "a",
 				host:     "db",
-				ips:      []string{"a"},
+				ips:      []string{"a", "a2"},
 			},
 			{
 				sourceIp: "a",
@@ -474,7 +550,7 @@ func (s *NetworkTestSuite) Test_ThreePodsWhereSecondIsInvalid() {
 			{
 				sourceIp: "b",
 				host:     "db",
-				ips:      []string{"a"},
+				ips:      []string{"a", "a2"},
 			},
 			{
 				sourceIp: "b",
@@ -527,24 +603,28 @@ func (s *NetworkTestSuite) Test_MultipleNetworksAreSeparate() {
 				hosts:    []string{"db"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 			{
 				ip:       "b",
 				hosts:    []string{"server"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 			{
 				ip:       "a2",
 				hosts:    []string{"db"},
 				networks: []string{"test2"},
 				updated:  true,
+				ready:    true,
 			},
 			{
 				ip:       "b2",
 				hosts:    []string{"server"},
 				networks: []string{"test2"},
 				updated:  true,
+				ready:    true,
 			},
 		},
 		errorsExpected: false,
@@ -656,12 +736,14 @@ func (s *NetworkTestSuite) Test_MultipleNetworksInOnePod() {
 				hosts:    []string{"db1", "db"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 			{
 				ip:       "db2",
 				hosts:    []string{"db2", "db"},
 				networks: []string{"test2"},
 				updated:  true,
+				ready:    true,
 			},
 			// server can access services in test1 and test2 network
 			{
@@ -669,6 +751,7 @@ func (s *NetworkTestSuite) Test_MultipleNetworksInOnePod() {
 				hosts:    []string{"server"},
 				networks: []string{"test1", "test2"},
 				updated:  true,
+				ready:    true,
 			},
 		},
 		errorsExpected: false,
@@ -713,6 +796,7 @@ func (s *NetworkTestSuite) Test_DuplicateHostsInPod() {
 				hosts:    []string{"db1", "db1"},
 				networks: []string{"test1"},
 				updated:  true,
+				ready:    true,
 			},
 		},
 		errorsExpected: false,
@@ -742,6 +826,7 @@ func (s *NetworkTestSuite) Test_DuplicateNetworksInPod() {
 				hosts:    []string{"db1"},
 				networks: []string{"test1", "test1"},
 				updated:  true,
+				ready:    true,
 			},
 		},
 		errorsExpected: false,
@@ -761,4 +846,54 @@ func (s *NetworkTestSuite) Test_DuplicateNetworksInPod() {
 		},
 	}
 	s.runTest(&test)
+}
+
+func (s *NetworkTestSuite) Test_NotReadyPod() {
+	test := NetworkTest{
+		pods: []PodInfo{
+			{
+				ip:       "a",
+				hosts:    []string{"db1"},
+				networks: []string{"test1", "test1"},
+				updated:  true,
+				ready:    false,
+			},
+		},
+		errorsExpected: false,
+		lookups: []Lookup{
+			{
+				sourceIp: "a",
+				host:     "db1",
+				ips:      []string{},
+			},
+		},
+		reverseLookups: []ReverseLookup{
+			{
+				sourceIp: "a",
+				ip:       "a",
+				hosts:    []string{},
+			},
+		},
+	}
+	s.runTest(&test)
+}
+
+func (s *NetworkTestSuite) Test_UpdatePodReadyStatus() {
+	pod1, err := s.createPod("a", []string{"db"}, []string{"test"}, false)
+	s.Nil(err)
+	pod2, err := s.createPod("a", []string{"db"}, []string{"test"}, true)
+	s.Nil(err)
+	pod3, err := s.createPod("a", []string{"db"}, []string{"test"}, false)
+	s.Nil(err)
+
+	s.True(s.pods.AddOrUpdate(pod1))
+	s.False(s.pods.Get(pod1.Namespace, pod1.Name).Ready)
+
+	s.True(s.pods.AddOrUpdate(pod2))
+	s.True(s.pods.Get(pod2.Namespace, pod2.Name).Ready)
+
+	s.True(s.pods.AddOrUpdate(pod3))
+	s.False(s.pods.Get(pod1.Namespace, pod1.Name).Ready)
+
+	s.False(s.pods.AddOrUpdate(pod3))
 }

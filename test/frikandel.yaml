@@ -7,7 +7,6 @@ metadata:
   labels:
     kubedock: "true"
   name: frikandel
-  namespace: kubedock
 spec:
   containers:
   - image: wamblee/networktools

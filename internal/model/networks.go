@@ -27,10 +27,11 @@ type Pod struct {
 	Name        string
 	HostAliases []Hostname
 	Networks    []NetworkId
+	Ready       bool
 }
 
 func NewPod(ip IPAddress, namespace string, name string, hostAliases []Hostname,
-	networks []NetworkId) (*Pod, error) {
+	networks []NetworkId, ready bool) (*Pod, error) {
 
 	hostAliases = slices.Clone(hostAliases)
 	slices.Sort(hostAliases)
@@ -53,6 +54,7 @@ func NewPod(ip IPAddress, namespace string, name string, hostAliases []Hostname,
 		Name:        name,
 		HostAliases: hostAliases,
 		Networks:    networks,
+		Ready:       ready,
 	}, nil
 }
 
@@ -67,36 +69,33 @@ func (pod *Pod) Copy() *Pod {
 		Name:        pod.Name,
 		HostAliases: slices.Clone(pod.HostAliases),
 		Networks:    slices.Clone(pod.Networks),
+		Ready:       pod.Ready,
 	}
 }
 
 type Network struct {
-	Id             NetworkId
-	IPToPod        map[IPAddress]*Pod
-	HostAliasToPod map[Hostname]*Pod
+	Id              NetworkId
+	IPToPod         map[IPAddress]*Pod
+	HostAliasToPods map[Hostname][]*Pod
 }
 
 func NewNetwork(id NetworkId) *Network {
 	network := Network{
-		Id:             id,
-		IPToPod:        make(map[IPAddress]*Pod),
-		HostAliasToPod: make(map[Hostname]*Pod),
+		Id:              id,
+		IPToPod:         make(map[IPAddress]*Pod),
+		HostAliasToPods: make(map[Hostname][]*Pod),
 	}
 	return &network
 }
 
 func (net *Network) Add(pod *Pod) error {
-	for _, hostAlias := range pod.HostAliases {
-		existingPod := net.HostAliasToPod[hostAlias]
-		if existingPod != nil && !(existingPod.Namespace == pod.Namespace && existingPod.Name == pod.Name) {
-			return fmt.Errorf("Pod %s/%s: hostAlias %s in network %s already mapped to %s/%s",
-				pod.Namespace, pod.Name, hostAlias, net.Id, existingPod.Namespace, existingPod.Name)
-		}
-	}
-
 	net.IPToPod[pod.IP] = pod
 	for _, hostAlias := range pod.HostAliases {
-		net.HostAliasToPod[hostAlias] = pod
+		pods := net.HostAliasToPods[hostAlias]
+		// when building the network from the pods, each pod is added in turn,
+		// so we do not need to check for duplicate additions of pods.
+		pods = append(pods, pod)
+		net.HostAliasToPods[hostAlias] = pods
 	}
 	return nil
 }
@@ -170,7 +169,7 @@ func (net *Networks) Log() {
 	for networkId, network := range net.NameToNetwork {
 		klog.Infof("Network %s", networkId)
 		for ip, pod := range network.IPToPod {
-			klog.Infof("  Pod: %s/%s", pod.Namespace, pod.Name)
+			klog.Infof("  Pod: %s/%s ready %v", pod.Namespace, pod.Name, pod.Ready)
 			klog.Infof("    IP: %s", ip)
 			for _, hostAlias := range pod.HostAliases {
 				klog.Infof("    Hostalias: %s", hostAlias)
@@ -191,9 +190,11 @@ func (net *Networks) Lookup(sourceIp IPAddress, hostname Hostname) []IPAddress {
 		return make([]IPAddress, 0)
 	}
 	for _, network := range networks {
-		pod := network.HostAliasToPod[hostname]
-		if pod != nil {
-			res = append(res, pod.IP)
+		pods := network.HostAliasToPods[hostname]
+		for _, pod := range pods {
+			if pod.Ready {
+				res = append(res, pod.IP)
+			}
 		}
 	}
 	return res
@@ -214,7 +215,7 @@ func (net *Networks) ReverseLookup(sourceIp IPAddress, ip IPAddress) []Hostname 
 	for _, network := range networks {
 		klog.V(3).Infof("Trying %s %v", network.Id, network)
 		pod := network.IPToPod[ip]
-		if pod != nil {
+		if pod != nil && pod.Ready {
 			klog.V(3).Infof("Found hostaliases %v", pod.HostAliases)
 			return pod.HostAliases
 		}

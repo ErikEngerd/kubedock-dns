@@ -7,7 +7,6 @@ metadata:
   labels:
     kubedock: "true"
   name: service1
-  namespace: kubedock
 spec:
   containers:
   - image: wamblee/networktools
@@ -16,3 +15,10 @@ spec:
       - tail
       - -f
       - /dev/null
+    readinessProbe:
+      exec:
+        command:
+          - echo
+      initialDelaySeconds: 10
+
+
