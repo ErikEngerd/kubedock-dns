@@ -8,7 +8,6 @@ metadata:
   labels:
     kubedock: "true"
   name: loempia
-  namespace: kubedock
 spec:
   containers:
   - image: wamblee/networktools

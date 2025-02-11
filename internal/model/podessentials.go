@@ -44,12 +44,23 @@ func GetPodEssentials(k8spod *corev1.Pod, overrideIP string,
 			k8spod.Namespace, k8spod.Name)
 	}
 
+	ready := false
+	for _, condition := range k8spod.Status.Conditions {
+		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+			ready = true
+		}
+	}
+	if k8spod.DeletionTimestamp != nil {
+		ready = false
+	}
+
 	pod, err := NewPod(
 		IPAddress(podIP),
 		k8spod.Namespace,
 		k8spod.Name,
 		hostaliases,
 		networks,
+		ready,
 	)
 
 	return pod, err

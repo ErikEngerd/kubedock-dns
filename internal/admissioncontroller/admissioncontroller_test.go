@@ -221,13 +221,10 @@ func (s *MutatorTestSuite) Test_DuplicateHost() {
 		},
 		"20.21.22.23")
 	response := s.mutator.Handle(s.ctx, request)
-	s.False(response.Allowed)
-
-	klog.V(3).Infof("Message: %s", response.Result.Message)
-	s.True(strings.Contains(response.Result.Message, "already mapped to"))
+	s.True(response.Allowed)
 
 	s.NotNil(s.pods.Get("kubedock", "db"))
-	s.Nil(s.pods.Get("kubedock", "db2"))
+	s.NotNil(s.pods.Get("kubedock", "db2"))
 }
 
 func (s *MutatorTestSuite) Test_SecondHost() {

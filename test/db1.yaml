@@ -7,7 +7,6 @@ metadata:
   labels:
     kubedock: "true"
   name: db1
-  namespace: kubedock
 spec:
   containers:
   - image: wamblee/networktools

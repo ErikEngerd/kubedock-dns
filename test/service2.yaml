@@ -7,7 +7,6 @@ metadata:
   labels:
     kubedock: "true"
   name: service2
-  namespace: kubedock
 spec:
   containers:
   - image: wamblee/networktools

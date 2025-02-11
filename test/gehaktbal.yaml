@@ -8,7 +8,6 @@ metadata:
   labels:
     kubedock: "true"
   name: gehaktbal
-  namespace: kubedock
 spec:
   containers:
   - image: wamblee/networktools

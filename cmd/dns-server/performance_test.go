@@ -24,6 +24,7 @@ func BenchmarkCreateNetworks(b *testing.B) {
 				fmt.Sprintf("pod%d", ipod),
 				[]model.Hostname{model.Hostname(fmt.Sprintf("host%d", j))},
 				[]model.NetworkId{model.NetworkId(fmt.Sprintf("network%d", i))},
+				true,
 			)
 			assert.Nil(b, err)
 			pods.AddOrUpdate(pod)
