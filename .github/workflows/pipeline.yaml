@@ -96,8 +96,25 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/${{ steps.lower-repo.outputs.repository }}:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ steps.lower-repo.outputs.repository }}:buildcache,mode=max
 
-  helm-package-publish:
+  helm-test:
     needs: docker-build-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+
+      - name: Install helm-unittest plugin
+        run: helm plugin install https://github.com/quintush/helm-unittest
+
+      - name: Run Helm unit tests
+        run: cd ${{ env.HELM_CHART_PATH }} && helm unittest .
+
+  helm-package-publish:
+    needs: helm-test
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     permissions:

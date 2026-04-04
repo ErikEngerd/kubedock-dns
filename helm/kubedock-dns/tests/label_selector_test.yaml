@@ -1,0 +1,50 @@
+suite: test label selector in MutatingWebhookConfiguration
+release:
+  name: test-release
+  namespace: test-namespace
+chart:
+  name: kubedock-dns
+  version: 0.1.0
+tests:
+  - it: should use custom label in MutatingWebhookConfiguration objectSelector
+    set:
+      label: custom-pod-label
+    asserts:
+      - isKind:
+          of: MutatingWebhookConfiguration
+        template: dns-mutator-config.yaml
+        documentIndex: 1
+      - equal:
+          path: webhooks[0].objectSelector.matchLabels
+          value:
+            custom-pod-label: "true"
+        template: dns-mutator-config.yaml
+        documentIndex: 1
+  
+  - it: should use another custom label in MutatingWebhookConfiguration objectSelector
+    set:
+      label: my-app-label
+    asserts:
+      - isKind:
+          of: MutatingWebhookConfiguration
+        template: dns-mutator-config.yaml
+        documentIndex: 1
+      - equal:
+          path: webhooks[0].objectSelector.matchLabels
+          value:
+            my-app-label: "true"
+        template: dns-mutator-config.yaml
+        documentIndex: 1
+  
+  - it: should use default label from values.yaml in MutatingWebhookConfiguration objectSelector
+    asserts:
+      - isKind:
+          of: MutatingWebhookConfiguration
+        template: dns-mutator-config.yaml
+        documentIndex: 1
+      - equal:
+          path: webhooks[0].objectSelector.matchLabels
+          value:
+            kubedock: "true"
+        template: dns-mutator-config.yaml
+        documentIndex: 1

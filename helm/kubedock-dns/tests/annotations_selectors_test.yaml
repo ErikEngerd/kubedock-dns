@@ -1,0 +1,211 @@
+suite: test commonAnnotations, nodeSelector, tolerations, and resources
+release:
+  name: test-release
+  namespace: test-namespace
+chart:
+  name: kubedock-dns
+  version: 0.1.0
+tests:
+  # Test commonAnnotations
+  - it: should not have commonAnnotations when not specified
+    asserts:
+      - isKind:
+          of: Deployment
+        template: dns-server.yaml
+        documentIndex: 0
+      - notExists:
+          path: metadata.annotations
+        template: dns-server.yaml
+        documentIndex: 0
+      - isKind:
+          of: Service
+        template: dns-server.yaml
+        documentIndex: 1
+      - notExists:
+          path: metadata.annotations
+        template: dns-server.yaml
+        documentIndex: 1
+  
+  - it: should have commonAnnotations when specified
+    set:
+      commonAnnotations:
+        app.version: 1.0.0
+        team: devops
+    asserts:
+      - isKind:
+          of: Deployment
+        template: dns-server.yaml
+        documentIndex: 0
+      - exists:
+          path: metadata.annotations
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["app.version"]
+          value: 1.0.0
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["team"]
+          value: devops
+        template: dns-server.yaml
+        documentIndex: 0
+      - isKind:
+          of: Service
+        template: dns-server.yaml
+        documentIndex: 1
+      - exists:
+          path: metadata.annotations
+        template: dns-server.yaml
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["app.version"]
+          value: 1.0.0
+        template: dns-server.yaml
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["team"]
+          value: devops
+        template: dns-server.yaml
+        documentIndex: 1
+
+  # Test nodeSelector
+  - it: should not have nodeSelector when not specified
+    asserts:
+      - isKind:
+          of: Deployment
+        template: dns-server.yaml
+        documentIndex: 0
+      - notExists:
+          path: spec.template.spec.nodeSelector
+        template: dns-server.yaml
+        documentIndex: 0
+  
+  - it: should have nodeSelector when specified
+    set:
+      nodeSelector:
+        node.type: worker
+        disk: ssd
+    asserts:
+      - isKind:
+          of: Deployment
+        template: dns-server.yaml
+        documentIndex: 0
+      - exists:
+          path: spec.template.spec.nodeSelector
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.nodeSelector["node.type"]
+          value: worker
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.nodeSelector["disk"]
+          value: ssd
+        template: dns-server.yaml
+        documentIndex: 0
+
+  # Test tolerations
+  - it: should not have tolerations when not specified
+    asserts:
+      - isKind:
+          of: Deployment
+        template: dns-server.yaml
+        documentIndex: 0
+      - notExists:
+          path: spec.template.spec.tolerations
+        template: dns-server.yaml
+        documentIndex: 0
+  
+  - it: should have tolerations when specified
+    set:
+      tolerations:
+        - key: "node-type"
+          operator: "Equal"
+          value: "worker"
+          effect: "NoSchedule"
+        - key: "dedicated"
+          operator: "Equal"
+          value: "dns"
+          effect: "NoSchedule"
+    asserts:
+      - isKind:
+          of: Deployment
+        template: dns-server.yaml
+        documentIndex: 0
+      - exists:
+          path: spec.template.spec.tolerations
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.tolerations[0].key
+          value: node-type
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.tolerations[0].value
+          value: worker
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.tolerations[1].key
+          value: dedicated
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.tolerations[1].value
+          value: dns
+        template: dns-server.yaml
+        documentIndex: 0
+
+  # Test resources
+  - it: should not have resources when not specified
+    asserts:
+      - isKind:
+          of: Deployment
+        template: dns-server.yaml
+        documentIndex: 0
+      - notExists:
+          path: spec.template.spec.containers[0].resources
+        template: dns-server.yaml
+        documentIndex: 0
+  
+  - it: should have resources when specified
+    set:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "128Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+    asserts:
+      - isKind:
+          of: Deployment
+        template: dns-server.yaml
+        documentIndex: 0
+      - exists:
+          path: spec.template.spec.containers[0].resources
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 100m
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 128Mi
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: 500m
+        template: dns-server.yaml
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 512Mi
+        template: dns-server.yaml
+        documentIndex: 0
