@@ -1,22 +1,30 @@
+{{- $name := include "fullname" . }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
     {{- include "labels" . | nindent 4 }}
-  name: {{ .Release.Name }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  name: {{ $name }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-server
+      app: {{ $name }}-server
   strategy: {}
   template:
     metadata:
       annotations:
         rollme: {{ randAlphaNum 5 | quote }}
+        {{- with .Values.commonAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       labels:
-        app: {{ .Release.Name }}-server
+        app: {{ $name }}-server
         {{- include "labels" . | nindent 8 }}
     spec:
       {{- if not (empty .Values.imagePullSecrets) }}
@@ -25,21 +33,24 @@ spec:
         - name: {{ $secret }}
         {{- end }}
       {{- end }}
-
-      serviceAccountName: {{ .Release.Name }}-server
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ $name }}-server
       containers:
       - image: {{ .Values.registry }}/kubedock-dns:{{ default .Chart.Version .Values.version }}
         imagePullPolicy: Always
         name: kubedock-dns
-{{/*        command:*/}}
-{{/*          - tail*/}}
-{{/*          - -f*/}}
-{{/*          - /dev/null*/}}
         args:
           - --v
           - "{{ .Values.logLevel }}"
           - --dns-service-name
-          - {{ .Release.Name }}-server
+          - {{ $name }}-server
         ports:
           - containerPort: 1053
             name: dns
@@ -58,14 +69,18 @@ spec:
       volumes:
         - name: pki
           secret:
-            secretName: {{ .Release.Name }}-mutator-cert
+            secretName: {{ $name }}-mutator-cert
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
     {{- include "labels" . | nindent 4 }}
-  name: {{ .Release.Name }}-server
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  name: {{ $name }}-server
 spec:
   ports:
   - name: dns
@@ -77,19 +92,5 @@ spec:
     protocol: TCP
     targetPort: 8443
   selector:
-    app: {{ .Release.Name }}-server
+    app: {{ $name }}-server
   type: ClusterIP
-
-
-
-
-
-
-
-
-
-
-
-
-
-

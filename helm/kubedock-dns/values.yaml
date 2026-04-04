@@ -1,15 +1,28 @@
-
-
-
 replicas: 1
 logLevel: 3
 
 # only pods with this label set to "true" will be handled
 label: kubedock
 
-# container contiguration
+# container configuration
 registry: localhost:5000
 # container version to use.
 version: 1.0.0
 
 imagePullSecrets: []
+
+# Override the name used for all resources. When set, this replaces .Release.Name
+# everywhere in the chart (deployments, services, RBAC, webhook, certificates).
+# Truncated to 50 characters so that the longest derived name in the chart
+# ("<fullname>-mutator-cert") stays within Kubernetes' 63-character name limit.
+fullnameOverride: ""
+
+# Annotations added to every rendered resource (Deployment, Service, ServiceAccount,
+# Role, RoleBinding, Secret, MutatingWebhookConfiguration).
+commonAnnotations: {}
+
+# Node selector applied to the kubedock-dns pod.
+nodeSelector: {}
+
+# Tolerations applied to the kubedock-dns pod.
+tolerations: []

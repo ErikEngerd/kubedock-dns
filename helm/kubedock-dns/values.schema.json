@@ -27,6 +27,31 @@
       "items": {
         "type": "string"
       }
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "description": "Override the name used for all resources instead of .Release.Name. Truncated to 50 characters."
+    },
+    "commonAnnotations": {
+      "type": "object",
+      "description": "Annotations to add to all rendered resources.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "nodeSelector": {
+      "type": "object",
+      "description": "Node selector applied to the kubedock-dns pod.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "tolerations": {
+      "type": "array",
+      "description": "Tolerations applied to the kubedock-dns pod.",
+      "items": {
+        "type": "object"
+      }
     }
   },
   "required": [
