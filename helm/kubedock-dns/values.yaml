@@ -26,3 +26,6 @@ nodeSelector: {}
 
 # Tolerations applied to the kubedock-dns pod.
 tolerations: []
+
+# Resource requests and limits for the kubedock-dns container.
+resources: {}

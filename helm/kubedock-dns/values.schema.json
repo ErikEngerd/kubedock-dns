@@ -52,6 +52,10 @@
       "items": {
         "type": "object"
       }
+    },
+    "resources": {
+      "type": "object",
+      "description": "Resource requests and limits for the kubedock-dns container."
     }
   },
   "required": [
