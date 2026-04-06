@@ -16,6 +16,6 @@ services:
   testimage:
     image: test/dnsclient
     build:
-      context: integrationtest/images/testpod
+      context: integrationtest/images/dnsclient
     profiles:
       - test
