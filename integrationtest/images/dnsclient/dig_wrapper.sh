@@ -9,8 +9,8 @@ fi
 # Run dig and filter output
 # +short returns only IPs; filter out empty lines
 ip=$(dig +short "$1" | grep -E '^[0-9.]+$')
-if [ -z "$ip" ]; then
-  exit 1
+if [[ -z "$ip" ]]
+then
+  exit 0 
 fi
-
 echo "$ip"

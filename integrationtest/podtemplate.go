@@ -31,7 +31,7 @@ func DisableKubedock(values PodTemplateValues) PodTemplateValues {
 	return values
 }
 
-func NotReady(values PodTemplateValues) PodTemplateValues {
+func NotReqdyAtStartup(values PodTemplateValues) PodTemplateValues {
 	values.Ready = false
 	return values
 }

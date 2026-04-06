@@ -185,6 +185,34 @@ func (s *IntegrationTestSuite) Test_NetworkIsolation() {
 }
 
 func (s *IntegrationTestSuite) Test_NotReadyPodCannotBeResolve() {
+	db := NewTestPod(&s.Suite, s.kubectlOptions, "db1", "database", "network1", NotReqdyAtStartup)
+	db.Deploy()
+	server := NewTestPod(&s.Suite, s.kubectlOptions, "server1", "server", "network1")
+	server.Deploy()
+
+	s.Require().Equal([]string{}, server.Lookup("database"))
+
+	db.SetReady(true)
+	s.Require().Equal([]string{db.IPAddress()}, server.Lookup("database"))
+}
+
+func (s *IntegrationTestSuite) Test_ResolutionWaitsABitUntilPodBecomesReady() {
+	db := NewTestPod(&s.Suite, s.kubectlOptions, "db1", "database", "network1", NotReqdyAtStartup)
+	db.Deploy()
+	server := NewTestPod(&s.Suite, s.kubectlOptions, "server1", "server", "network1")
+	server.Deploy()
+
+	s.Require().Equal([]string{}, server.Lookup("database"))
+
+	// pod becomes ready after we start the lookup
+	go func() {
+		time.Sleep(1 * time.Second)
+		db.SetReady(true)
+	}()
+	s.Require().Equal([]string{db.IPAddress()}, server.Lookup("database"))
+}
+
+func (s *IntegrationTestSuite) Test_PodInMultipleNetworks() {
 	server1 := NewTestPod(&s.Suite, s.kubectlOptions, "server1", "server1", "network1")
 	server1.Deploy()
 	server2 := NewTestPod(&s.Suite, s.kubectlOptions, "server2", "server2", "network2")
@@ -195,10 +223,6 @@ func (s *IntegrationTestSuite) Test_NotReadyPodCannotBeResolve() {
 	// client can resolve both servers
 	s.Require().Equal([]string{server1.IPAddress()}, client.Lookup("server1"))
 	s.Require().Equal([]string{server2.IPAddress()}, client.Lookup("server2"))
-}
-
-func (s *IntegrationTestSuite) Test_PodInMultipleNetworks() {
-
 }
 
 func (s *IntegrationTestSuite) Test_PodBeingDeletedCannotBeResolved() {

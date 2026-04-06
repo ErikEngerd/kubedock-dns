@@ -3,6 +3,7 @@ package integrationtest
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -41,7 +42,11 @@ func (p *TestPod) Lookup(host string) []string {
 	out, err := k8s.RunKubectlAndGetOutputE(p.s.T(), p.options, "exec", p.pod.Name, "--", "./dig_wrapper.sh", host)
 	p.s.Require().Nil(err)
 	out = strings.TrimSpace(out)
-	return strings.Split(out, "\n")
+	res := strings.Split(out, "\n")
+	res = slices.DeleteFunc(res, func(s string) bool {
+		return s == ""
+	})
+	return res
 }
 
 func (p *TestPod) Delete() {
