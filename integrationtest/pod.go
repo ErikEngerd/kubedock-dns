@@ -34,10 +34,11 @@ func NewTestPod(s *suite.Suite, kubectlOptions *k8s.KubectlOptions, name string,
 func (p *TestPod) Deploy() {
 	_, err := p.clientset().CoreV1().Pods(p.options.Namespace).Create(context.Background(), p.pod, metav1.CreateOptions{})
 	p.s.Require().Nil(err)
+	p.WaitUntilRunning()
 }
 
 func (p *TestPod) Lookup(host string) []string {
-	out, err := k8s.RunKubectlAndGetOutputE(p.s.T(), p.options, "exec", p.pod.Name, "--", "./dig_warpper.sh", host)
+	out, err := k8s.RunKubectlAndGetOutputE(p.s.T(), p.options, "exec", p.pod.Name, "--", "./dig_wrapper.sh", host)
 	p.s.Require().Nil(err)
 	out = strings.TrimSpace(out)
 	return strings.Split(out, "\n")
