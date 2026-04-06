@@ -2,6 +2,8 @@
 
 
 timeout="$1"
+ready="$2"
+shift
 shift
 if [[ $# -eq 0 ]]
 then
@@ -21,6 +23,11 @@ function countdown
 
 # Trap SIGTERM and SIGINT
 trap "echo caught signal; countdown $timeout; exit" EXIT
+
+if [[ "$ready" = "true" ]]
+then
+  touch /ready
+fi
 
 echo "Started"
 # Execute passed command

@@ -17,9 +17,10 @@ spec:
     image: test/dnsclient:latest
     args:
       - "{{ .ShutdownTimeout }}"
-      - tail
-      - -f
-      - /dev/null
+      - "{{ .Ready }}"
+      - "tail"
+      - "-f"
+      - "/dev/null"
     readinessProbe:
       exec:
         command: ["/bin/sh", "-c", "test -f /app/ready"]
