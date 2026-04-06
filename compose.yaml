@@ -13,3 +13,9 @@ services:
       - 8443:8443
    
 
+  testimage:
+    image: test/dnsclient
+    build:
+      context: integrationtest/images/testpod
+    profiles:
+      - test

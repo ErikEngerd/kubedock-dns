@@ -29,6 +29,10 @@ all: build
 images:
 	docker compose build
 
+test_images:
+	docker compose --profile test build
+	k3d image import -c $${CLUSTER:-dev} test/dnsclient
+
 helminstall: images
 	helm upgrade --install dns helm/dns
 
