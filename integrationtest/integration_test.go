@@ -39,29 +39,29 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 // SetupTest runs before each test
 func (s *IntegrationTestSuite) SetupTest() {
 	// Check for allow-testing configmap
-	configMapName := "allow-testing"
-	namespace := "default"
 
+	namespace := "kubedock-dns-test"
 	// Create kubectl options
 	s.kubectlOptions = &k8s.KubectlOptions{
 		Namespace: namespace,
+	}
+	if _, err := k8s.GetNamespaceE(s.T(), s.kubectlOptions, namespace); err != nil {
+		k8s.CreateNamespace(s.T(), s.kubectlOptions, namespace)
 	}
 
 	var err error
 	s.clientset, err = k8s.GetKubernetesClientFromOptionsE(s.T(), s.kubectlOptions)
 	s.Require().Nil(err)
 
-	// Check if configmap exists
-	_, err = k8s.GetConfigMapE(s.T(), s.kubectlOptions, configMapName)
-	s.Require().Nil(err, "config map "+configMapName+" not found, testing is not allowed in this namespace")
 	// ConfigMap exists, delete all pods in the namespace
-	s.T().Logf("ConfigMap %s found, deleting all pods in namespace %s", configMapName, namespace)
+	s.T().Logf("Deleting all pods in namespace %s", namespace)
 
 	s.cleanup(err)
 
 	// install kubedock-dns
 	// TODO; helm chart name must be configurable
 	helm.Install(s.T(), &helm.Options{
+		KubectlOptions: s.kubectlOptions,
 		ExtraArgs: map[string][]string{
 			"install": {"--wait"},
 		},
@@ -72,6 +72,7 @@ func (s *IntegrationTestSuite) cleanup(err error) {
 	// uninstall all helm charts
 	helmreleases := HelmReleases(s.T(), s.kubectlOptions, s.kubectlOptions.Namespace)
 	helmOptions := &helm.Options{
+		KubectlOptions: s.kubectlOptions,
 		ExtraArgs: map[string][]string{
 			"delete": {"--wait"},
 		},
