@@ -49,8 +49,13 @@ func (p *TestPod) Lookup(host string) []string {
 	return res
 }
 
-func (p *TestPod) Delete() {
-	err := p.clientset().CoreV1().Pods(p.options.Namespace).Delete(context.Background(), p.pod.Name, metav1.DeleteOptions{})
+func (p *TestPod) Delete(force bool) {
+	deleteOptions := metav1.DeleteOptions{}
+	if force {
+		zero := int64(0)
+		deleteOptions.GracePeriodSeconds = &zero
+	}
+	err := p.clientset().CoreV1().Pods(p.options.Namespace).Delete(context.Background(), p.pod.Name, deleteOptions)
 	p.s.Require().Nil(err)
 }
 

@@ -50,6 +50,13 @@ func AddHostAlias(host string) PodOption {
 	}
 }
 
+func ShutdownTimeout(timeoutSeconds int) PodOption {
+	return func(values PodTemplateValues) PodTemplateValues {
+		values.ShutdownTimeoutSeconds = timeoutSeconds
+		return values
+	}
+}
+
 // CreatePodFromTemplate creates a *v1.Pod using go templating
 func CreatePodFromTemplate(values PodTemplateValues) (*v1.Pod, error) {
 	// Read the template file

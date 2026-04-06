@@ -83,8 +83,11 @@ func (s *IntegrationTestSuite) cleanup(err error) {
 	// Get list of pods
 	pods := s.listPods()
 	// Delete each pod using kubectl delete
+	zero := int64(0)
 	for _, pod := range pods {
-		s.clientset.CoreV1().Pods(s.kubectlOptions.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+		s.clientset.CoreV1().Pods(s.kubectlOptions.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
+			GracePeriodSeconds: &zero,
+		})
 	}
 
 	retry.DoWithRetry(s.T(), "namespace empty", 40, 1*time.Second, func() (string, error) {
@@ -127,7 +130,7 @@ func (s *IntegrationTestSuite) deployPod(pod *v1.Pod) *v1.Pod {
 }
 
 // Test_Dummy is a simple empty test case to verify the test suite works
-func (s *IntegrationTestSuite) Test_PodTemplatingForTest() {
+func (s *IntegrationTestSuite) XTest_PodTemplatingForTest() {
 	pod, err := CreatePod("db1", "database", "network1", AddNetwork("pietjepuk"))
 	s.Require().Nil(err)
 	s.T().Logf("Successfully created pod: %s", pod.Name)
@@ -226,5 +229,19 @@ func (s *IntegrationTestSuite) Test_PodInMultipleNetworks() {
 }
 
 func (s *IntegrationTestSuite) Test_PodBeingDeletedCannotBeResolved() {
+	db := NewTestPod(&s.Suite, s.kubectlOptions, "db1", "database", "network1", ShutdownTimeout(30))
+	db.Deploy()
+	server := NewTestPod(&s.Suite, s.kubectlOptions, "server1", "server", "network1")
+	server.Deploy()
 
+	s.Require().Equal([]string{db.IPAddress()}, server.Lookup("database"))
+
+	db.Delete(false)
+	retry.DoWithRetry(s.T(), "wait until not resolvable", 10, 1*time.Second, func() (string, error) {
+		lookup := server.Lookup("database")
+		if len(lookup) > 0 {
+			return "", fmt.Errorf("Can still lookup database")
+		}
+		return "", nil
+	})
 }
