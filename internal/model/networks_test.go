@@ -1,10 +1,11 @@
 package model
 
 import (
-	"github.com/stretchr/testify/suite"
-	"k8s.io/klog/v2"
 	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/suite"
+	"k8s.io/klog/v2"
 	"wamblee.org/kubedock/dns/internal/support"
 )
 
@@ -34,9 +35,9 @@ func (s *NetworkTestSuite) checkNetwork(network *Network) {
 		for _, hostalias := range pod.HostAliases {
 			hostaliases[hostalias] = true
 			pod2 := network.HostAliasToPods[hostalias]
-			slices.ContainsFunc(pod2, func(p *Pod) bool {
+			s.Require().True(slices.ContainsFunc(pod2, func(p *Pod) bool {
 				return p.Name == pod.Name
-			})
+			}))
 		}
 	}
 	s.Equal(len(hostaliases), len(network.HostAliasToPods))

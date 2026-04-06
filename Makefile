@@ -13,7 +13,7 @@ vet: fmt
 test: build
 	go test -v -count=1 ${TESTFLAGS} ./internal/... ./cmd/...
 
-integrationtest: build
+integrationtest: build test_images
 	go test -v -count=1 ${TESTFLAGS} ./integrationtest/...
 
 bench: build

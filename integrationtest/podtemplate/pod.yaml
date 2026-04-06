@@ -15,8 +15,9 @@ spec:
   containers:
   - name: app
     image: test/dnsclient:latest
+    imagePullPolicy: Never
     args:
-      - "{{ .ShutdownTimeout }}"
+      - "{{ .ShutdownTimeoutSeconds }}"
       - "{{ .Ready }}"
       - "tail"
       - "-f"

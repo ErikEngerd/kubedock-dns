@@ -26,7 +26,7 @@ trap "echo caught signal; countdown $timeout; exit" EXIT
 
 if [[ "$ready" = "true" ]]
 then
-  touch /ready
+  touch ready
 fi
 
 echo "Started"

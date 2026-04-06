@@ -11,6 +11,8 @@ services:
     ports:
       - 1053:1053/udp
       - 8443:8443
+    profiles:
+      - prod
    
 
   testimage:
