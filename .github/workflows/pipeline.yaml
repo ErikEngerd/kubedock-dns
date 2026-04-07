@@ -108,7 +108,7 @@ jobs:
       - name: Set up k3d
         uses: absaoss/k3d-action@v2
         with:
-          cluster-name: integration-test
+          cluster-name: dev
           args: --agents 1
 
       - name: Run integration tests
