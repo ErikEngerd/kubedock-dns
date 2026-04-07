@@ -1,7 +1,6 @@
 
-FROM alpine:3.20.2 as builder
+FROM golang:1.26.1 as builder
 
-RUN apk update && apk add go
 RUN mkdir -p /opt/dns/bin
 WORKDIR /opt/dns
 

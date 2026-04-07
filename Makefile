@@ -30,7 +30,7 @@ clean:
 all: build
 
 images:
-	docker compose build
+	docker compose --profile prod build
 
 test_images:
 	docker compose --profile test build
