@@ -13,4 +13,4 @@ if [[ -z "$ip" ]]
 then
   exit 0 
 fi
-echo "$ip"
+echo "$ip" | sed 's/^DIG://g'

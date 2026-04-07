@@ -39,14 +39,29 @@ func (p *TestPod) Deploy() {
 }
 
 func (p *TestPod) Lookup(host string) []string {
-	out, err := k8s.RunKubectlAndGetOutputE(p.s.T(), p.options, "exec", p.pod.Name, "--", "./dig_wrapper.sh", host)
-	p.s.Require().Nil(err)
+	out := p.kubectlRetry("exec", p.pod.Name, "--", "./dig_wrapper.sh", host)
 	out = strings.TrimSpace(out)
 	res := strings.Split(out, "\n")
+	res = MapSlice(res, func(v string) string {
+		return strings.TrimPrefix(v, "DIG:")
+	})
 	res = slices.DeleteFunc(res, func(s string) bool {
 		return s == ""
 	})
 	return res
+}
+
+func (p *TestPod) kubectlRetry(args ...string) string {
+	var out string
+	var err error
+	retry.DoWithRetry(p.s.T(), "kubectl", 3, 1*time.Second, func() (string, error) {
+		out, err = k8s.RunKubectlAndGetOutputE(p.s.T(), p.options, args...)
+		if err != nil {
+			return "", err
+		}
+		return "", nil
+	})
+	return out
 }
 
 func (p *TestPod) Delete(force bool) {
@@ -71,10 +86,10 @@ func (p *TestPod) IPAddress() string {
 
 func (p *TestPod) SetReady(ready bool) {
 	if ready {
-		k8s.RunKubectl(p.s.T(), p.options, "exec", p.pod.Name, "--", "touch", "ready")
+		p.kubectlRetry("exec", p.pod.Name, "--", "touch", "ready")
 		p.WaitUntilReady()
 	} else {
-		k8s.RunKubectl(p.s.T(), p.options, "exec", p.pod.Name, "--", "rm", "-f", "ready")
+		p.kubectlRetry("exec", p.pod.Name, "--", "rm", "-f", "ready")
 		p.WaitUntilNotReady()
 	}
 }
