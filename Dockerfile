@@ -1,5 +1,5 @@
 
-FROM golang:1.26.1 as builder
+FROM golang:1.26.1 AS builder
 
 RUN mkdir -p /opt/dns/bin
 WORKDIR /opt/dns
