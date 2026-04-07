@@ -99,8 +99,23 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/${{ steps.lower-repo.outputs.repository }}:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ steps.lower-repo.outputs.repository }}:buildcache,mode=max
 
-  helm-test:
+  integration-test:
     needs: docker-build-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up k3d
+        uses: absaoss/k3d-action@v2
+        with:
+          cluster-name: integration-test
+          args: --agents 1
+
+      - name: Run integration tests
+        run: make integrationtest
+
+  helm-test:
+    needs: integration-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
