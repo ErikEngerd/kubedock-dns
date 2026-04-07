@@ -9,6 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  OWNER: ${{ github.repository_owner }}
   IMAGE_NAME: ${{ github.repository }}
   HELM_CHART_PATH: ./helm/kubedock-dns
   GO_VERSION: '1.23'
@@ -23,10 +24,11 @@ jobs:
     steps:
       - name: debug-info
         run: |
-            echo "Registry: ${{ env.REGISTRY }}"
+            echo "Registry:   ${{ env.REGISTRY }}"
+            echo "Owner:      ${{ env.OWNER }}" 
             echo "Image name: ${{ env.IMAGE_NAME }}"
-            echo "Version: ${{ env.VERSION }}"
-            echo "Actor: ${{ github.actor }}"
+            echo "Version:    ${{ env.VERSION }}"
+            echo "Actor:      ${{ github.actor }}"
 
       - uses: actions/checkout@v4
 
