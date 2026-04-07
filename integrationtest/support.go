@@ -15,7 +15,7 @@ func HelmReleases(t *testing.T, options *k8s.KubectlOptions, namespace string) [
 	helmOptions := &helm.Options{
 		KubectlOptions: options,
 	}
-	listJson, listJsonErr, err := helm.RunHelmCommandAndGetStdOutErrE(t, helmOptions, "list", "-o", "json", "-n", namespace)
+	listJson, listJsonErr, err := helm.RunHelmCommandAndGetStdOutErrE(t, helmOptions, "list", "--all", "-o", "json", "-n", namespace)
 	require.Nil(t, err, listJsonErr)
 	var list []map[string]string
 	err = json.Unmarshal([]byte(listJson), &list)

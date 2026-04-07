@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,7 +62,23 @@ func (s *IntegrationTestSuite) SetupTest() {
 
 	// install kubedock-dns
 	// TODO; helm chart name must be configurable
+	registry := os.Getenv("REGISTRY")
+	if registry == "" {
+		registry = "localhost:5000"
+	}
+	owner := os.Getenv("OWNER")
+	if owner != "" {
+		registry = registry + "/" + strings.ToLower(owner)
+	}
+	version := os.Getenv("VERSION")
+	if version == "" {
+		version = "0.0.0"
+	}
 	helm.Install(s.T(), &helm.Options{
+		SetValues: map[string]string{
+			"registry": registry,
+			"version":  version,
+		},
 		KubectlOptions: s.kubectlOptions,
 		ExtraArgs: map[string][]string{
 			"install": {"--wait"},
