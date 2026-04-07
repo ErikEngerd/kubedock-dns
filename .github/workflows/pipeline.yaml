@@ -126,7 +126,7 @@ jobs:
           version: 'latest'
 
       - name: Install helm-unittest plugin
-        run: helm plugin install https://github.com/quintush/helm-unittest
+        run: helm plugin install --verify=false https://github.com/quintush/helm-unittest
 
       - name: Run Helm unit tests
         run: cd ${{ env.HELM_CHART_PATH }} && helm unittest .
