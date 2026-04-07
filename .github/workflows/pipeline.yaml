@@ -99,23 +99,8 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/${{ steps.lower-repo.outputs.repository }}:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ steps.lower-repo.outputs.repository }}:buildcache,mode=max
 
-  integration-test:
-    needs: docker-build-push
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Set up k3d
-        uses: absaoss/k3d-action@v2
-        with:
-          cluster-name: dev
-          args: --agents 1
-
-      - name: Run integration tests
-        run: make integrationtest
-
   helm-test:
-    needs: integration-test
+    needs: build-and-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -130,6 +115,21 @@ jobs:
 
       - name: Run Helm unit tests
         run: cd ${{ env.HELM_CHART_PATH }} && helm unittest .
+
+  integration-test:
+    needs: helm-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up k3d
+        uses: absaoss/k3d-action@v2
+        with:
+          cluster-name: dev
+          args: --agents 1
+
+      - name: Run integration tests
+        run: make integrationtest
 
   helm-package-publish:
     needs: helm-test
