@@ -42,6 +42,9 @@ func (p *TestPod) Lookup(host string) []string {
 	out := p.kubectlRetry("exec", p.pod.Name, "--", "./dig_wrapper.sh", host)
 	out = strings.TrimSpace(out)
 	res := strings.Split(out, "\n")
+	res = slices.DeleteFunc(res, func(s string) bool {
+		return !strings.HasPrefix(s, "DIG:")
+	})
 	res = MapSlice(res, func(v string) string {
 		return strings.TrimPrefix(v, "DIG:")
 	})
