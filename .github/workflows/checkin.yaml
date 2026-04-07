@@ -18,7 +18,7 @@ jobs:
     outputs:
       version: ${{ steps.set-version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-tags: true
           fetch-depth: 0
